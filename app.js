@@ -31,6 +31,9 @@ const state = {
 
   typeMenu: null,         // {parentId, x, y}
   sidebarOpen: false,
+  notifications: [],      // [{id, user_id, block_id, page_id, page_title, content, created_at, seen}]
+  notifPanelOpen: false,
+  notifTimer: null,
 };
 
 const BLOCK_TYPES = [
@@ -89,9 +92,11 @@ function fmtDate(iso){
 
 function profileName(id){
   const p = state.profiles[id];
-  if(!p) return 'Collègue';
+  if(!p) return 'Inconnu';
   const n = [p.first_name, p.last_name].filter(Boolean).join(' ').trim();
-  return n || 'Collègue';
+  if(n) return n;
+  if(p.email) return p.email.split('@')[0];
+  return 'Inconnu';
 }
 
 /* ======================= AUTH ======================= */
@@ -110,11 +115,113 @@ sb.auth.onAuthStateChange((event, session)=>{
 
 async function bootstrapAfterLogin(){
   await Promise.all([loadProfiles(), loadSpaces()]);
+  await loadNotifications();
+  startNotifPolling();
   render();
 }
 
+async function loadNotifications(){
+  const meId = state.session.user.id;
+  // get all comments not written by me, across all pages
+  const { data: comments, error } = await sb
+    .from('comments')
+    .select('id, block_id, content, created_at, user_id, seen_by')
+    .neq('user_id', meId)
+    .order('created_at', {ascending: false})
+    .limit(50);
+  if(error || !comments) return;
+
+  // get page info for each block
+  const blockIds = [...new Set(comments.map(c=>c.block_id))];
+  if(!blockIds.length){ state.notifications=[]; return; }
+
+  const { data: blocks } = await sb.from('blocks').select('id, page_id').in('id', blockIds);
+  const pageIds = [...new Set((blocks||[]).map(b=>b.page_id))];
+  const { data: pages } = await sb.from('pages').select('id, title').in('id', pageIds);
+
+  const blockToPage = {};
+  (blocks||[]).forEach(b=> blockToPage[b.id] = b.page_id);
+  const pageMap = {};
+  (pages||[]).forEach(p=> pageMap[p.id] = p.title);
+
+  state.notifications = comments.map(c=>({
+    ...c,
+    page_id: blockToPage[c.block_id],
+    page_title: pageMap[blockToPage[c.block_id]] || 'Cours inconnu',
+    seen: (c.seen_by||[]).includes(meId),
+  }));
+}
+
+function startNotifPolling(){
+  if(state.notifTimer) clearInterval(state.notifTimer);
+  state.notifTimer = setInterval(async ()=>{
+    const prevUnseen = state.notifications.filter(n=>!n.seen).length;
+    await loadNotifications();
+    const newUnseen = state.notifications.filter(n=>!n.seen).length;
+    if(newUnseen > prevUnseen) render(); // re-render badge
+    else if(newUnseen !== prevUnseen) render();
+  }, 30000);
+}
+
+async function markAllSeen(){
+  const meId = state.session.user.id;
+  const unseenIds = state.notifications.filter(n=>!n.seen).map(n=>n.id);
+  if(!unseenIds.length) return;
+  // update seen_by for each
+  await sb.rpc('mark_comments_seen', { comment_ids: unseenIds, user_id: meId }).then(()=>{});
+  // fallback: update one by one if rpc not available
+  for(const id of unseenIds){
+    const c = state.notifications.find(n=>n.id===id);
+    const newSeen = [...new Set([...(c.seen_by||[]), meId])];
+    await sb.from('comments').update({seen_by: newSeen}).eq('id', id);
+  }
+  state.notifications.forEach(n=> n.seen = true);
+  render();
+}
+
+async function goToNotification(notif){
+  // mark seen
+  const meId = state.session.user.id;
+  const newSeen = [...new Set([...(notif.seen_by||[]), meId])];
+  await sb.from('comments').update({seen_by: newSeen}).eq('id', notif.id);
+  notif.seen = true;
+  state.notifPanelOpen = false;
+
+  // navigate to the right space/page
+  if(notif.page_id){
+    const { data: page } = await sb.from('pages').select('space_id').eq('id', notif.page_id).single();
+    if(page){
+      await selectSpace(page.space_id);
+      await selectPage(notif.page_id);
+      // open comment section for that block
+      state.openComments.add(notif.block_id);
+    }
+  }
+  render();
+}
+
+function renderNotifPanel(){
+  const notifs = state.notifications;
+  const unseenCount = notifs.filter(n=>!n.seen).length;
+  return `<div class="notif-panel">
+    <div class="notif-head">
+      <span>Commentaires récents</span>
+      ${unseenCount ? `<button class="notif-mark-all" data-mark-all-seen="1">Tout marquer lu</button>` : '<span style="color:var(--muted);font-weight:400;font-size:11px;">Tout lu ✓</span>'}
+    </div>
+    <div class="notif-list">
+      ${notifs.length ? notifs.map(n=>`
+        <div class="notif-item ${n.seen?'':'unseen'}" data-goto-notif="${n.id}">
+          <div class="ni-who">${esc(profileName(n.user_id))} <span style="font-weight:400;color:var(--muted)">${fmtDate(n.created_at)}</span></div>
+          <div class="ni-where">📄 ${esc(n.page_title)}</div>
+          <div class="ni-text">« ${esc((n.content||'').substring(0,80))}${(n.content||'').length>80?'…':''} »</div>
+        </div>
+      `).join('') : `<div class="notif-empty">Aucun commentaire de vos collègues pour l'instant.</div>`}
+    </div>
+  </div>`;
+}
+
 async function loadProfiles(){
-  const { data, error } = await sb.from('profiles').select('id,first_name,last_name');
+  const { data, error } = await sb.from('profiles').select('id,first_name,last_name,email');
   if(!error && data){
     state.profiles = {};
     data.forEach(p=> state.profiles[p.id] = p);
@@ -239,7 +346,7 @@ async function selectPage(id, skipRender){
 }
 
 async function deletePage(page){
-  if(!confirm('Supprimer ce cours et tout son contenu ?')) return;
+  if(!confirm(`Supprimer le cours « ${page.title} » et tout son contenu ?\n\nCette action est irréversible.`)) return;
   const { data: blocks } = await sb.from('blocks').select('id').eq('page_id', page.id);
   const ids = (blocks||[]).map(b=>b.id);
   if(ids.length){
@@ -350,13 +457,17 @@ async function saveBlockNow(block){
 }
 
 async function deleteBlock(block){
+  const children = state.blocks.filter(b=>b.parent_block_id===block.id);
+  const msg = children.length
+    ? `Supprimer ce bloc et ses ${children.length} élément(s) enfant(s) ? Cette action est irréversible.`
+    : 'Supprimer ce bloc ? Cette action est irréversible.';
+  if(!confirm(msg)) return;
   // delete children recursively
   const toDelete = [block.id];
   const collectChildren = (pid)=>{
     state.blocks.filter(b=>b.parent_block_id===pid).forEach(c=>{ toDelete.push(c.id); collectChildren(c.id); });
   };
   collectChildren(block.id);
-  if(toDelete.length>1 && !confirm('Ce bloc contient des éléments. Tout supprimer ?')) return;
   await sb.from('comments').delete().in('block_id', toDelete);
   await sb.from('blocks').delete().in('id', toDelete);
   state.blocks = state.blocks.filter(b=>!toDelete.includes(b.id));
@@ -374,6 +485,13 @@ async function moveBlock(block, dir){
   render();
   await sb.from('blocks').update({order_index:block.order_index}).eq('id',block.id);
   await sb.from('blocks').update({order_index:other.order_index}).eq('id',other.id);
+}
+
+async function toggleLock(page){
+  page.locked = !page.locked;
+  render();
+  const { error } = await sb.from('pages').update({locked: page.locked}).eq('id', page.id);
+  if(error){ showToast('Erreur de sauvegarde du verrou'); page.locked = !page.locked; render(); }
 }
 
 function toggleOpen(id){
@@ -403,6 +521,7 @@ async function chooseSong(block, song){
   }, {skipSave:true});
   await saveBlockNow(block);
   state.songPickerForBlock = null;
+  document.querySelectorAll('body > .menu-overlay').forEach(o=>o.remove());
   render();
 }
 
@@ -518,6 +637,7 @@ function renderApp(){
         <div class="page-row ${p.id===state.currentPageId?'active':''}" data-select-page="${p.id}">
           <span class="ptitle">${esc(p.title || 'Sans titre')}</span>
           <span class="pmove">
+            <button class="icon-btn lock-btn ${p.locked?'locked':''}" data-toggle-lock="${p.id}" title="${p.locked?'Déverrouiller':'Verrouiller'}">${p.locked?'🔒':'🔓'}</button>
             <button class="icon-btn" data-move-page="${p.id}" data-dir="-1" title="Monter">▲</button>
             <button class="icon-btn" data-move-page="${p.id}" data-dir="1" title="Descendre">▼</button>
             <button class="icon-btn" data-delete-page="${p.id}" title="Supprimer">✕</button>
@@ -528,8 +648,12 @@ function renderApp(){
     </div>
     <div class="sidebar-footer">
       <span class="who">${esc(profileName(state.session.user.id))}</span>
+      <button class="notif-btn ${state.notifications.filter(n=>!n.seen).length ? 'has' : ''}" data-notif-panel="1" title="Commentaires récents">
+        💬${state.notifications.filter(n=>!n.seen).length ? `<span class="notif-badge">${state.notifications.filter(n=>!n.seen).length}</span>` : ''}
+      </button>
       <button class="signout" data-signout="1">Déconnexion</button>
     </div>
+    ${state.notifPanelOpen ? renderNotifPanel() : ''}
   </div>
   <div class="main">
     <div class="main-inner">
@@ -564,25 +688,31 @@ function renderEmptyState(){
 
 /* ---- PAGE ---- */
 function renderPage(page){
+  const locked = !!page.locked;
   const topBlocks = siblingBlocks(null);
   return `
-    <input class="page-title" value="${esc(page.title||'')}" placeholder="Titre du cours" data-page-title="${page.id}">
+    <input class="page-title" value="${esc(page.title||'')}" placeholder="Titre du cours" data-page-title="${page.id}" ${locked?'readonly style="cursor:default"':''}>
     <p class="page-meta">Modifié le ${fmtDate(page.updated_at)} · espace « ${esc((state.spaces.find(s=>s.id===page.space_id)||{}).name||'')} »</p>
+    ${locked ? `
+      <div class="page-locked-banner">
+        🔒 Ce cours est verrouillé — consultation uniquement.
+        <button data-toggle-lock="${page.id}">Déverrouiller</button>
+      </div>` : ''}
     <div class="blocks-list">
-      ${topBlocks.map(b=>renderBlock(b, 0)).join('')}
+      ${topBlocks.map(b=>renderBlock(b, 0, locked)).join('')}
     </div>
-    <div class="add-block-zone">
+    ${!locked ? `<div class="add-block-zone">
       <button class="add-block-btn" data-add-root="1">＋ Ajouter un bloc</button>
-    </div>
+    </div>` : ''}
   `;
 }
 
 /* ---- BLOCK RENDER ---- */
-function renderBlock(block, depth){
+function renderBlock(block, depth, locked){
   const siblings = siblingBlocks(block.parent_block_id);
   const idx = siblings.findIndex(b=>b.id===block.id);
   const canUp = idx>0, canDown = idx<siblings.length-1;
-  const controls = `
+  const controls = locked ? '' : `
     <div class="block-controls">
       ${renderCommentToggle(block)}
       <button class="icon-btn" data-move="${block.id}" data-dir="-1" ${canUp?'':'disabled style="opacity:.25"'} title="Monter">▲</button>
@@ -597,32 +727,31 @@ function renderBlock(block, depth){
     case 'heading':
     case 'subheading':
     case 'paragraph':
-      inner = `<div class="block-content" contenteditable="true" data-field="text" data-placeholder="${block.type==='heading'?'Titre…':block.type==='subheading'?'Sous-titre…':'Écrivez quelque chose…'}">${esc(c.text||'')}</div>`;
+      inner = `<div class="block-content" ${locked?'':'contenteditable="true"'} data-field="text" data-placeholder="${block.type==='heading'?'Titre…':block.type==='subheading'?'Sous-titre…':'Écrivez quelque chose…'}">${esc(c.text||'')}</div>`;
       break;
     case 'bullet': {
-      const num = idx+1;
-      inner = `<span class="marker">•</span><div class="block-content" contenteditable="true" data-field="text" data-placeholder="Élément de liste…">${esc(c.text||'')}</div>`;
+      inner = `<span class="marker">•</span><div class="block-content" ${locked?'':'contenteditable="true"'} data-field="text" data-placeholder="Élément de liste…">${esc(c.text||'')}</div>`;
       break;
     }
     case 'numbered': {
       const num = idx+1;
-      inner = `<span class="marker">${num}.</span><div class="block-content" contenteditable="true" data-field="text" data-placeholder="Élément de liste…">${esc(c.text||'')}</div>`;
+      inner = `<span class="marker">${num}.</span><div class="block-content" ${locked?'':'contenteditable="true"'} data-field="text" data-placeholder="Élément de liste…">${esc(c.text||'')}</div>`;
       break;
     }
     case 'callout':
-      inner = `<span class="callout-icon">${esc(c.emoji||'💡')}</span><div class="block-content" contenteditable="true" data-field="text" data-placeholder="Note importante…">${esc(c.text||'')}</div>`;
+      inner = `<span class="callout-icon">${esc(c.emoji||'💡')}</span><div class="block-content" ${locked?'':'contenteditable="true"'} data-field="text" data-placeholder="Note importante…">${esc(c.text||'')}</div>`;
       break;
     case 'divider':
       inner = `<hr>`;
       break;
     case 'video':
-      inner = renderVideoBlock(block, c);
+      inner = renderVideoBlock(block, c, locked);
       break;
     case 'song':
-      inner = renderSongBlock(block, c);
+      inner = renderSongBlock(block, c, locked);
       break;
     case 'toggle':
-      return renderToggleBlock(block, c, depth, controls);
+      return renderToggleBlock(block, c, depth, controls, locked);
   }
 
   const blockClass = `block b-${block.type}`;
@@ -637,7 +766,7 @@ function renderBlock(block, depth){
   return html;
 }
 
-function renderToggleBlock(block, c, depth, controls){
+function renderToggleBlock(block, c, depth, controls, locked){
   const isOpen = state.openToggles.has(block.id);
   const children = siblingBlocks(block.id);
   return `<div class="block b-toggle ${isOpen?'open':'collapsed'}" data-block-id="${block.id}" data-type="toggle">
@@ -646,34 +775,36 @@ function renderToggleBlock(block, c, depth, controls){
         <button class="toggle-caret" data-toggle="${block.id}">
           <svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 1 L8 5 L2 9" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
-        <div class="block-content" contenteditable="true" data-field="text" data-placeholder="Titre dépliant…">${esc(c.text||'')}</div>
+        <div class="block-content" ${locked?'':'contenteditable="true"'} data-field="text" data-placeholder="Titre dépliant…">${esc(c.text||'')}</div>
       </div>
       ${controls}
     </div>
     ${renderCommentPanel(block)}
     <div class="toggle-children ${isOpen?'':'hidden'}">
-      ${children.map(ch=>renderBlock(ch, depth+1)).join('')}
-      <button class="toggle-add" data-add-child="${block.id}">＋ Ajouter un élément ici</button>
+      ${children.map(ch=>renderBlock(ch, depth+1, locked)).join('')}
+      ${!locked ? `<button class="toggle-add" data-add-child="${block.id}">＋ Ajouter un élément ici</button>` : ''}
     </div>
   </div>`;
 }
 
-function renderVideoBlock(block, c){
+function renderVideoBlock(block, c, locked){
   const ytId = extractYoutubeId(c.url);
   return `<div class="video-wrap">
-    <input class="video-url-input" data-field="url" placeholder="Collez un lien YouTube…" value="${esc(c.url||'')}">
+    ${!locked ? `<input class="video-url-input" data-field="url" placeholder="Collez un lien YouTube…" value="${esc(c.url||'')}">` : ''}
     ${ytId ? `
       <div class="video-frame"><iframe src="https://www.youtube.com/embed/${ytId}" title="Vidéo YouTube" allowfullscreen></iframe></div>
       <p style="margin:6px 0 0;"><a href="https://www.youtube.com/watch?v=${ytId}" target="_blank" rel="noopener" style="color:var(--terracotta); font-size:12.5px;">↗ Regarder sur YouTube (si la vidéo ne s'affiche pas ci-dessus)</a></p>
     ` : c.url ? `
       <div class="video-frame"><div class="video-placeholder">Lien non reconnu comme vidéo YouTube</div></div>
-    ` : ''}
-    <div class="video-caption" contenteditable="true" data-field="caption" data-placeholder="Légende (optionnel)…">${esc(c.caption||'')}</div>
+    ` : (!locked ? '' : '')}
+    ${!locked ? `<div class="video-caption" contenteditable="true" data-field="caption" data-placeholder="Légende (optionnel)…">${esc(c.caption||'')}</div>` :
+      (c.caption ? `<div class="video-caption">${esc(c.caption)}</div>` : '')}
   </div>`;
 }
 
-function renderSongBlock(block, c){
+function renderSongBlock(block, c, locked){
   if(!c.song_id){
+    if(locked) return `<div class="song-empty"><span>♪ Aucun chant sélectionné</span></div>`;
     return `<div class="song-empty">
       <span>♪ Aucun chant sélectionné</span>
       <button class="pick-song-btn" data-pick-song="${block.id}">Choisir un chant</button>
@@ -685,7 +816,7 @@ function renderSongBlock(block, c){
       <div class="song-note">♪</div>
       <div class="song-title">${esc(c.title||'Sans titre')}</div>
       <div class="song-cat">${esc(SONG_CATEGORIES[c.category]||c.category||'')}</div>
-      <button class="icon-btn" data-pick-song="${block.id}" title="Changer de chant">⇄</button>
+      ${!locked ? `<button class="icon-btn" data-pick-song="${block.id}" title="Changer de chant">⇄</button>` : ''}
     </div>
     <div class="song-body ${isOpen?'open':''}">
       ${c.lyrics ? `<div class="song-lyrics">${esc(c.lyrics)}</div>` : `<p style="color:var(--muted); font-size:13px;">Pas de paroles enregistrées.</p>`}
@@ -793,7 +924,7 @@ function attachAppEvents(){
   const ham = document.querySelector('[data-toggle-sidebar]');
   if(ham) ham.addEventListener('click', ()=>{ state.sidebarOpen=!state.sidebarOpen; render(); });
   const backdrop = document.querySelector('[data-close-sidebar]');
-  if(backdrop) backdrop.addEventListener('click', ()=>{ state.sidebarOpen=false; render(); });
+  if(backdrop) backdrop.addEventListener('click', ()=>{ state.sidebarOpen=false; state.notifPanelOpen=false; render(); });
 
   // spaces
   document.querySelectorAll('[data-select-space]').forEach(el=>{
@@ -818,6 +949,15 @@ function attachAppEvents(){
     });
   });
   document.querySelectorAll('[data-create-page]').forEach(el=> el.addEventListener('click', createPage));
+  document.querySelectorAll('[data-lock-page],[data-toggle-lock]').forEach(el=>{
+    el.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      const id = el.dataset.lockPage || el.dataset.toggleLock;
+      const p = state.pages.find(x=>x.id===id);
+      if(p) toggleLock(p);
+    });
+  });
+
   document.querySelectorAll('[data-delete-page]').forEach(el=>{
     el.addEventListener('click', (e)=>{ e.stopPropagation(); const p=state.pages.find(x=>x.id===el.dataset.deletePage); if(p) deletePage(p); });
   });
@@ -841,6 +981,24 @@ function attachAppEvents(){
   // sign out
   const so = document.querySelector('[data-signout]');
   if(so) so.addEventListener('click', doSignOut);
+
+  // notifications
+  document.querySelectorAll('[data-notif-panel]').forEach(el=>{
+    el.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      state.notifPanelOpen = !state.notifPanelOpen;
+      render();
+    });
+  });
+  document.querySelectorAll('[data-mark-all-seen]').forEach(el=>{
+    el.addEventListener('click', (e)=>{ e.stopPropagation(); markAllSeen(); });
+  });
+  document.querySelectorAll('[data-goto-notif]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const notif = state.notifications.find(n=>n.id===el.dataset.gotoNotif);
+      if(notif) goToNotification(notif);
+    });
+  });
 
   // add root block
   document.querySelectorAll('[data-add-root]').forEach(el=>{
@@ -944,6 +1102,7 @@ function attachAppEvents(){
   });
   document.querySelectorAll('[data-delete-comment]').forEach(el=>{
     el.addEventListener('click', ()=>{
+      if(!confirm('Supprimer ce commentaire ?')) return;
       const [blockId, commentId] = el.dataset.deleteComment.split('|');
       const c = (state.comments[blockId]||[]).find(x=>x.id===commentId);
       if(c) deleteComment(blockId, c);
