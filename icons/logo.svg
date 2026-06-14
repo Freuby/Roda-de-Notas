@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="256" fill="#C1502E"/>
+  <!-- Outer dashed ring (roda) -->
+  <circle cx="256" cy="256" r="210" fill="none" stroke="#F6E8C8" stroke-width="12" stroke-dasharray="32 16"/>
+  <!-- Inner circle -->
+  <circle cx="256" cy="256" r="165" fill="#A03E22"/>
+  <!-- Drum / berimbau stylized as two figures in ginga -->
+  <!-- Left figure -->
+  <ellipse cx="200" cy="210" rx="22" ry="22" fill="#F6E8C8"/>
+  <line x1="200" y1="232" x2="185" y2="310" stroke="#F6E8C8" stroke-width="14" stroke-linecap="round"/>
+  <line x1="185" y1="310" x2="155" y2="355" stroke="#F6E8C8" stroke-width="13" stroke-linecap="round"/>
+  <line x1="185" y1="310" x2="215" y2="360" stroke="#F6E8C8" stroke-width="13" stroke-linecap="round"/>
+  <line x1="200" y1="265" x2="155" y2="290" stroke="#F6E8C8" stroke-width="12" stroke-linecap="round"/>
+  <line x1="200" y1="265" x2="240" y2="248" stroke="#F6E8C8" stroke-width="12" stroke-linecap="round"/>
+  <!-- Right figure -->
+  <ellipse cx="315" cy="210" rx="22" ry="22" fill="#F6E8C8"/>
+  <line x1="315" y1="232" x2="328" y2="310" stroke="#F6E8C8" stroke-width="14" stroke-linecap="round"/>
+  <line x1="328" y1="310" x2="358" y2="355" stroke="#F6E8C8" stroke-width="13" stroke-linecap="round"/>
+  <line x1="328" y1="310" x2="298" y2="360" stroke="#F6E8C8" stroke-width="13" stroke-linecap="round"/>
+  <line x1="315" y1="265" x2="360" y2="290" stroke="#F6E8C8" stroke-width="12" stroke-linecap="round"/>
+  <line x1="315" y1="265" x2="275" y2="248" stroke="#F6E8C8" stroke-width="12" stroke-linecap="round"/>
+  <!-- Text -->
+  <text x="256" y="430" text-anchor="middle" font-family="Georgia, serif" font-size="52" font-weight="bold" fill="#F6E8C8" letter-spacing="2">RODA</text>
+  <text x="256" y="478" text-anchor="middle" font-family="Georgia, serif" font-size="30" fill="#D7A33B" letter-spacing="6">de notas</text>
+</svg>
