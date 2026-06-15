@@ -30,6 +30,7 @@ const state = {
   songPickerQuery: '',
 
   typeMenu: null,         // {parentId, x, y, changeBlockId}
+  drag: null,             // {blockId, parentId}
   moveBlockModal: null,   // {blockId} — which block to move to another page
   sidebarOpen: false,
   notifications: [],      // [{id, user_id, block_id, page_id, page_title, content, created_at, seen}]
@@ -634,12 +635,107 @@ async function deleteComment(blockId, comment){
   render();
 }
 
-/* ======================= RENDER ======================= */
+/* ======================= DRAG & DROP ======================= */
+function attachDragDrop(){
+  const blockEls = document.querySelectorAll('[data-block-id][draggable="true"]');
+
+  blockEls.forEach(el=>{
+    el.addEventListener('dragstart', e=>{
+      const id = el.dataset.blockId;
+      const block = state.blocks.find(b=>b.id===id);
+      if(!block) return;
+      state.drag = { blockId: id, parentId: block.parent_block_id||null };
+      el.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', id);
+    });
+
+    el.addEventListener('dragend', ()=>{
+      el.classList.remove('dragging');
+      document.querySelectorAll('.drop-over').forEach(x=>x.classList.remove('drop-over'));
+      document.querySelectorAll('.drop-line').forEach(x=>x.remove());
+      state.drag = null;
+    });
+
+    el.addEventListener('dragover', e=>{
+      if(!state.drag || state.drag.blockId === el.dataset.blockId) return;
+      const dragged = state.blocks.find(b=>b.id===state.drag.blockId);
+      const target = state.blocks.find(b=>b.id===el.dataset.blockId);
+      if(!dragged || !target) return;
+      // only allow same-level drops (same parent)
+      if((dragged.parent_block_id||null) !== (target.parent_block_id||null)) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      document.querySelectorAll('.drop-over').forEach(x=>x.classList.remove('drop-over'));
+      const rect = el.getBoundingClientRect();
+      const midY = rect.top + rect.height/2;
+      el.classList.add('drop-over');
+      el.dataset.dropPos = e.clientY < midY ? 'before' : 'after';
+    });
+
+    el.addEventListener('dragleave', e=>{
+      if(!el.contains(e.relatedTarget)){
+        el.classList.remove('drop-over');
+      }
+    });
+
+    el.addEventListener('drop', async e=>{
+      e.preventDefault();
+      if(!state.drag) return;
+      const targetId = el.dataset.blockId;
+      const draggedId = state.drag.blockId;
+      if(draggedId === targetId){ el.classList.remove('drop-over'); return; }
+
+      const dragged = state.blocks.find(b=>b.id===draggedId);
+      const target = state.blocks.find(b=>b.id===targetId);
+      if(!dragged || !target) return;
+      if((dragged.parent_block_id||null) !== (target.parent_block_id||null)) return;
+
+      const dropBefore = el.dataset.dropPos === 'before';
+      el.classList.remove('drop-over');
+
+      // reorder in state
+      const siblings = siblingBlocks(dragged.parent_block_id||null);
+      const filtered = siblings.filter(b=>b.id!==draggedId);
+      const targetIdx = filtered.findIndex(b=>b.id===targetId);
+      const insertAt = dropBefore ? targetIdx : targetIdx+1;
+      filtered.splice(insertAt, 0, dragged);
+
+      // reassign order_index
+      const updates = [];
+      filtered.forEach((b,i)=>{
+        if(b.order_index !== i){
+          b.order_index = i;
+          updates.push({ id: b.id, order_index: i });
+        }
+      });
+
+      // update state.blocks order
+      const nonSiblings = state.blocks.filter(b=>
+        (b.parent_block_id||null) !== (dragged.parent_block_id||null)
+      );
+      state.blocks = [...nonSiblings, ...filtered].sort((a,b)=>{
+        if(a.page_id!==b.page_id) return 0;
+        return a.order_index - b.order_index;
+      });
+
+      render();
+
+      // persist
+      for(const u of updates){
+        await sb.from('blocks').update({order_index: u.order_index}).eq('id', u.id);
+      }
+    });
+  });
+}
+
+
 function render(){
   if(state.loadingAuth){ root.innerHTML = `<div class="auth-loading">Chargement de la roda…</div>`; return; }
   if(!state.session){ root.innerHTML = renderAuth(); attachAuthEvents(); return; }
   root.innerHTML = renderApp();
   attachAppEvents();
+  attachDragDrop();
 }
 
 /* ---- AUTH SCREEN ---- */
@@ -807,11 +903,10 @@ function renderBlock(block, depth, locked){
   const controls = locked ? '' : `
     <div class="block-controls">
       ${renderCommentToggle(block)}
+      <button class="icon-btn drag-handle" data-drag-handle="${block.id}" title="Glisser pour déplacer" draggable="false">⠿</button>
       <button class="icon-btn" data-change-type="${block.id}" title="Changer le type de bloc">⇄</button>
       <button class="icon-btn" data-duplicate-block="${block.id}" title="Dupliquer ce bloc">⧉</button>
       <button class="icon-btn" data-move-block-to="${block.id}" title="Déplacer vers un autre cours">↗</button>
-      <button class="icon-btn" data-move="${block.id}" data-dir="-1" ${canUp?'':'disabled style="opacity:.25"'} title="Monter">▲</button>
-      <button class="icon-btn" data-move="${block.id}" data-dir="1" ${canDown?'':'disabled style="opacity:.25"'} title="Descendre">▼</button>
       <button class="icon-btn" data-delete-block="${block.id}" title="Supprimer">🗑</button>
     </div>`;
 
@@ -858,8 +953,7 @@ function renderBlock(block, depth, locked){
   }
 
   const blockClass = `block b-${block.type}`;
-  const rowExtra = block.type==='callout' ? '' : '';
-  let html = `<div class="${blockClass}" data-block-id="${block.id}" data-type="${block.type}">
+  let html = `<div class="${blockClass}" data-block-id="${block.id}" data-type="${block.type}" draggable="true">
     <div class="block-row">
       ${inner}
       ${controls}
@@ -872,7 +966,7 @@ function renderBlock(block, depth, locked){
 function renderToggleBlock(block, c, depth, controls, locked){
   const isOpen = state.openToggles.has(block.id);
   const children = siblingBlocks(block.id);
-  return `<div class="block b-toggle ${isOpen?'open':'collapsed'}" data-block-id="${block.id}" data-type="toggle">
+  return `<div class="block b-toggle ${isOpen?'open':'collapsed'}" data-block-id="${block.id}" data-type="toggle" draggable="true">
     <div class="block-row">
       <div class="toggle-head">
         <button class="toggle-caret" data-toggle="${block.id}">
