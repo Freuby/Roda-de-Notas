@@ -829,7 +829,15 @@ function renderBlock(block, depth, locked){
       break;
     }
     case 'numbered': {
-      const num = idx+1;
+      // count only preceding consecutive numbered siblings
+      const num = (() => {
+        let n = 1;
+        for(let i = idx - 1; i >= 0; i--){
+          if(siblings[i].type === 'numbered') n++;
+          else break;
+        }
+        return n;
+      })();
       inner = `<span class="marker">${num}.</span><div class="block-content" ${locked?'':'contenteditable="true"'} data-field="text" data-placeholder="Élément de liste…">${esc(c.text||'')}</div>`;
       break;
     }
