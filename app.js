@@ -722,7 +722,12 @@ function renderApp(){
         <div class="page-row ${p.id===state.currentPageId?'active':''}" data-select-page="${p.id}">
           <span class="ptitle">${esc(p.title || 'Sans titre')}</span>
           <span class="pmove">
-            <button class="icon-btn lock-btn ${p.locked?'locked':''}" data-toggle-lock="${p.id}" title="${p.locked?'Déverrouiller':'Verrouiller'}">${p.locked?'🔒':'🔓'}</button>
+            <button class="icon-btn lock-btn ${p.locked?'locked':''}" data-toggle-lock="${p.id}" title="${p.locked?'Déverrouiller':'Verrouiller'}">
+              ${p.locked
+                ? `<svg width="12" height="14" viewBox="0 0 12 14" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="6" width="10" height="7" rx="1.5" fill="currentColor" opacity=".9"/><path d="M3 6V4a3 3 0 0 1 6 0v2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="6" cy="9.5" r="1" fill="white"/></svg>`
+                : `<svg width="12" height="14" viewBox="0 0 12 14" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="6" width="10" height="7" rx="1.5" fill="currentColor" opacity=".35"/><path d="M3 6V4a3 3 0 0 1 6 0" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>`
+              }
+            </button>
             <button class="icon-btn" data-duplicate-page="${p.id}" title="Dupliquer ce cours">⧉</button>
             <button class="icon-btn" data-move-page="${p.id}" data-dir="-1" title="Monter">▲</button>
             <button class="icon-btn" data-move-page="${p.id}" data-dir="1" title="Descendre">▼</button>
