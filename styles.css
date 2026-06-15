@@ -246,9 +246,20 @@
     padding:7px 14px; font-size:13px; font-weight:600;
   }
 
-  .lock-btn{opacity:0.35; transition:opacity .12s;}
+  .lock-btn{
+    opacity:0; transition:opacity .12s, background .12s;
+    border-radius:5px; padding:2px 4px; font-size:13px;
+    line-height:1; display:inline-flex; align-items:center;
+  }
   .page-row:hover .lock-btn{opacity:1;}
-  .lock-btn.locked{opacity:1; color:var(--terracotta);}
+  .lock-btn.locked{
+    opacity:1;
+    background:var(--terracotta);
+    color:#fff;
+    border-radius:5px;
+    padding:2px 5px;
+  }
+  .lock-btn.locked:hover{ background:#a03e22; }
   .page-locked-banner{
     display:flex; align-items:center; gap:8px;
     background:var(--ochre-soft); border:1px solid var(--ochre); border-radius:8px;
