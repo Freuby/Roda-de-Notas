@@ -319,6 +319,17 @@
   .comment-del{background:none; border:none; color:var(--muted); font-size:11px; margin-left:6px;}
   .comment-del:hover{color:var(--terracotta);}
 
+  /* ---------- Drag & Drop ---------- */
+  .drag-handle{
+    cursor: grab; font-size:15px; opacity:0; transition:opacity .12s;
+    color:var(--muted); padding:2px 3px;
+  }
+  .block-row:hover .drag-handle{ opacity:1; }
+  .drag-handle:active{ cursor:grabbing; }
+  .dragging{ opacity:.35; }
+  .drop-over[data-drop-pos="before"]{ border-top:2px solid var(--terracotta); }
+  .drop-over[data-drop-pos="after"]{ border-bottom:2px solid var(--terracotta); }
+
   /* ---------- Notifications ---------- */
   .notif-btn{
     background:none; border:1px solid var(--border); border-radius:8px;
