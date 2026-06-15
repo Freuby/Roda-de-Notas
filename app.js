@@ -372,14 +372,21 @@ async function duplicatePage(page){
 async function duplicateBlock(block){
   const siblings = siblingBlocks(block.parent_block_id);
   const idx = siblings.findIndex(b=>b.id===block.id);
-  const next = siblings[idx+1];
-  const newOrder = next ? (block.order_index + next.order_index)/2 : block.order_index+1;
+  // shift all following blocks up by 1 to make room
+  const following = siblings.slice(idx+1);
+  if(following.length){
+    for(const b of following){
+      b.order_index += 1;
+      sb.from('blocks').update({order_index: b.order_index}).eq('id', b.id);
+    }
+  }
+  const newOrder = block.order_index + 1;
   const { data: newBlock, error } = await sb.from('blocks').insert({
     page_id: block.page_id, type: block.type, content: block.content,
     parent_block_id: block.parent_block_id, order_index: newOrder,
     created_by: state.session.user.id
   }).select().single();
-  if(error){ showToast('Erreur de duplication'); return; }
+  if(error){ console.error('duplicateBlock error', error); showToast('Erreur de duplication : ' + error.message); return; }
   const globalIdx = state.blocks.findIndex(b=>b.id===block.id);
   state.blocks.splice(globalIdx+1, 0, newBlock);
   showToast('Bloc dupliqué ✓');
