@@ -636,6 +636,66 @@ async function deleteComment(blockId, comment){
 }
 
 /* ======================= DRAG & DROP ======================= */
+function attachSidebarDragDrop(){
+  const pageEls = document.querySelectorAll('[data-page-row]');
+  let dragPageId = null;
+
+  pageEls.forEach(el=>{
+    el.addEventListener('dragstart', e=>{
+      dragPageId = el.dataset.pageRow;
+      el.classList.add('page-dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', dragPageId);
+    });
+    el.addEventListener('dragend', ()=>{
+      el.classList.remove('page-dragging');
+      document.querySelectorAll('.page-drop-before,.page-drop-after').forEach(x=>{
+        x.classList.remove('page-drop-before','page-drop-after');
+      });
+      dragPageId = null;
+    });
+    el.addEventListener('dragover', e=>{
+      if(!dragPageId || dragPageId === el.dataset.pageRow) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      document.querySelectorAll('.page-drop-before,.page-drop-after').forEach(x=>{
+        x.classList.remove('page-drop-before','page-drop-after');
+      });
+      const rect = el.getBoundingClientRect();
+      el.classList.add(e.clientY < rect.top + rect.height/2 ? 'page-drop-before' : 'page-drop-after');
+    });
+    el.addEventListener('dragleave', e=>{
+      if(!el.contains(e.relatedTarget)){
+        el.classList.remove('page-drop-before','page-drop-after');
+      }
+    });
+    el.addEventListener('drop', async e=>{
+      e.preventDefault();
+      if(!dragPageId || dragPageId === el.dataset.pageRow) return;
+      const dropBefore = el.classList.contains('page-drop-before');
+      el.classList.remove('page-drop-before','page-drop-after');
+
+      const dragged = state.pages.find(p=>p.id===dragPageId);
+      const target = state.pages.find(p=>p.id===el.dataset.pageRow);
+      if(!dragged || !target) return;
+
+      // reorder pages array
+      const filtered = state.pages.filter(p=>p.id!==dragPageId);
+      const targetIdx = filtered.findIndex(p=>p.id===target.id);
+      const insertAt = dropBefore ? targetIdx : targetIdx+1;
+      filtered.splice(insertAt, 0, dragged);
+
+      // reassign order_index
+      const updates = [];
+      filtered.forEach((p,i)=>{ if(p.order_index!==i){ p.order_index=i; updates.push({id:p.id, order_index:i}); } });
+      state.pages = filtered;
+      render();
+      for(const u of updates) await sb.from('pages').update({order_index:u.order_index}).eq('id',u.id);
+    });
+  });
+}
+
+
 function attachDragDrop(){
   const blockEls = document.querySelectorAll('[data-block-id][draggable="true"]');
 
@@ -736,6 +796,7 @@ function render(){
   root.innerHTML = renderApp();
   attachAppEvents();
   attachDragDrop();
+  attachSidebarDragDrop();
 }
 
 /* ---- AUTH SCREEN ---- */
@@ -815,7 +876,7 @@ function renderApp(){
     <div class="sidebar-section pages">
       <p class="section-label">${space ? esc(space.name) : 'Cours'}</p>
       ${state.pages.map((p,i)=>`
-        <div class="page-row ${p.id===state.currentPageId?'active':''}" data-select-page="${p.id}">
+        <div class="page-row ${p.id===state.currentPageId?'active':''}" data-select-page="${p.id}" data-page-row="${p.id}" draggable="true">
           <span class="ptitle">${esc(p.title || 'Sans titre')}</span>
           <span class="pmove">
             <button class="icon-btn lock-btn ${p.locked?'locked':''}" data-toggle-lock="${p.id}" title="${p.locked?'Déverrouiller':'Verrouiller'}">
@@ -900,16 +961,15 @@ function renderBlock(block, depth, locked){
   const siblings = siblingBlocks(block.parent_block_id);
   const idx = siblings.findIndex(b=>b.id===block.id);
   const canUp = idx>0, canDown = idx<siblings.length-1;
+  const dragHandle = locked ? '' : `<button class="drag-handle" data-drag-handle="${block.id}" title="Glisser pour déplacer" draggable="false">⠿</button>`;
   const controls = locked ? '' : `
     <div class="block-controls">
       ${renderCommentToggle(block)}
-      <button class="icon-btn drag-handle" data-drag-handle="${block.id}" title="Glisser pour déplacer" draggable="false">⠿</button>
       <button class="icon-btn" data-change-type="${block.id}" title="Changer le type de bloc">⇄</button>
       <button class="icon-btn" data-duplicate-block="${block.id}" title="Dupliquer ce bloc">⧉</button>
       <button class="icon-btn" data-move-block-to="${block.id}" title="Déplacer vers un autre cours">↗</button>
       <button class="icon-btn" data-delete-block="${block.id}" title="Supprimer">🗑</button>
     </div>`;
-
   let inner = '';
   const c = block.content || {};
 
@@ -955,6 +1015,7 @@ function renderBlock(block, depth, locked){
   const blockClass = `block b-${block.type}`;
   let html = `<div class="${blockClass}" data-block-id="${block.id}" data-type="${block.type}" draggable="true">
     <div class="block-row">
+      ${dragHandle}
       ${inner}
       ${controls}
     </div>
@@ -966,8 +1027,10 @@ function renderBlock(block, depth, locked){
 function renderToggleBlock(block, c, depth, controls, locked){
   const isOpen = state.openToggles.has(block.id);
   const children = siblingBlocks(block.id);
+  const dragHandle = locked ? '' : `<button class="drag-handle" data-drag-handle="${block.id}" title="Glisser pour déplacer" draggable="false">⠿</button>`;
   return `<div class="block b-toggle ${isOpen?'open':'collapsed'}" data-block-id="${block.id}" data-type="toggle" draggable="true">
     <div class="block-row">
+      ${dragHandle}
       <div class="toggle-head">
         <button class="toggle-caret" data-toggle="${block.id}">
           <svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 1 L8 5 L2 9" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
