@@ -29,7 +29,7 @@ const state = {
   songPickerForBlock: null, // block id when picker open
   songPickerQuery: '',
 
-  typeMenu: null,         // {parentId, x, y}
+  typeMenu: null,         // {parentId, x, y, changeBlockId}
   sidebarOpen: false,
   notifications: [],      // [{id, user_id, block_id, page_id, page_title, content, created_at, seen}]
   notifPanelOpen: false,
@@ -494,6 +494,31 @@ async function toggleLock(page){
   if(error){ showToast('Erreur de sauvegarde du verrou'); page.locked = !page.locked; render(); }
 }
 
+async function changeBlockType(block, newType){
+  // preserve existing text content where possible
+  const oldContent = block.content || {};
+  let newContent = {};
+  const textVal = oldContent.text || oldContent.caption || '';
+  if(['heading','subheading','paragraph','bullet','numbered','toggle'].includes(newType)){
+    newContent = { text: textVal };
+  } else if(newType === 'callout'){
+    newContent = { text: textVal, emoji: oldContent.emoji || '💡' };
+  } else if(newType === 'video'){
+    newContent = { url: oldContent.url || '', caption: oldContent.caption || '' };
+  } else if(newType === 'song'){
+    newContent = {};
+  } else if(newType === 'divider'){
+    newContent = {};
+  }
+  block.type = newType;
+  block.content = newContent;
+  state.typeMenu = null;
+  if(newType === 'song'){ state.songPickerForBlock = block.id; state.songPickerQuery = ''; ensureSongsLoaded().then(render); }
+  render();
+  const { error } = await sb.from('blocks').update({ type: newType, content: newContent }).eq('id', block.id);
+  if(error){ showToast('Erreur lors du changement de type'); }
+}
+
 function toggleOpen(id){
   if(state.openToggles.has(id)) state.openToggles.delete(id);
   else state.openToggles.add(id);
@@ -715,6 +740,7 @@ function renderBlock(block, depth, locked){
   const controls = locked ? '' : `
     <div class="block-controls">
       ${renderCommentToggle(block)}
+      <button class="icon-btn" data-change-type="${block.id}" title="Changer le type de bloc">⇄</button>
       <button class="icon-btn" data-move="${block.id}" data-dir="-1" ${canUp?'':'disabled style="opacity:.25"'} title="Monter">▲</button>
       <button class="icon-btn" data-move="${block.id}" data-dir="1" ${canDown?'':'disabled style="opacity:.25"'} title="Descendre">▼</button>
       <button class="icon-btn" data-delete-block="${block.id}" title="Supprimer">🗑</button>
@@ -856,11 +882,15 @@ function renderCommentPanel(block){
 
 /* ---- TYPE MENU ---- */
 function renderTypeMenu(){
-  const {x,y} = state.typeMenu;
+  const {x,y,changeBlockId} = state.typeMenu;
+  const block = changeBlockId ? state.blocks.find(b=>b.id===changeBlockId) : null;
   return `<div class="menu-overlay" data-close-menu="1">
     <div class="type-menu" style="left:${x}px; top:${y}px;">
+      ${changeBlockId ? `<div style="font-size:11px;color:var(--muted);padding:4px 10px 2px;font-weight:600;text-transform:uppercase;letter-spacing:1px;">Changer le type</div>` : ''}
       ${BLOCK_TYPES.map(t=>`
-        <button data-pick-type="${t.type}"><span class="ti">${t.icon}</span>${t.label}</button>
+        <button data-pick-type="${t.type}" ${block && block.type===t.type ? 'style="background:var(--terracotta-soft);font-weight:600;"' : ''}>
+          <span class="ti">${t.icon}</span>${t.label}${block && block.type===t.type ? ' ✓' : ''}
+        </button>
       `).join('')}
     </div>
   </div>`;
@@ -949,6 +979,10 @@ function attachAppEvents(){
     });
   });
   document.querySelectorAll('[data-create-page]').forEach(el=> el.addEventListener('click', createPage));
+  document.querySelectorAll('[data-change-type]').forEach(el=>{
+    el.addEventListener('click', (e)=> openChangeTypeMenu(e, el.dataset.changeType));
+  });
+
   document.querySelectorAll('[data-lock-page],[data-toggle-lock]').forEach(el=>{
     el.addEventListener('click', (e)=>{
       e.stopPropagation();
@@ -1015,7 +1049,15 @@ function attachAppEvents(){
       if(e.target===overlay){ state.typeMenu=null; render(); }
     });
     document.querySelectorAll('[data-pick-type]').forEach(el=>{
-      el.addEventListener('click', ()=> addBlock(el.dataset.pickType, state.typeMenu.parentId));
+      el.addEventListener('click', ()=>{
+        const {changeBlockId, parentId} = state.typeMenu;
+        if(changeBlockId){
+          const block = state.blocks.find(b=>b.id===changeBlockId);
+          if(block) changeBlockType(block, el.dataset.pickType);
+        } else {
+          addBlock(el.dataset.pickType, parentId);
+        }
+      });
     });
   }
 
@@ -1131,6 +1173,16 @@ function refreshSongPickerList(){
       if(song && block) chooseSong(block, song);
     });
   });
+}
+
+function openChangeTypeMenu(e, blockId){
+  const rect = e.target.getBoundingClientRect();
+  let x = rect.left, y = rect.bottom + 6;
+  const menuW = 230, menuH = 360;
+  if(x + menuW > window.innerWidth - 12) x = window.innerWidth - menuW - 12;
+  if(y + menuH > window.innerHeight - 12) y = rect.top - menuH - 6;
+  state.typeMenu = { parentId: null, changeBlockId: blockId, x: Math.max(8,x), y: Math.max(8,y) };
+  render();
 }
 
 function openTypeMenu(e, parentId){
