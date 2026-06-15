@@ -320,15 +320,25 @@
   .comment-del:hover{color:var(--terracotta);}
 
   /* ---------- Drag & Drop ---------- */
+  .block{ position:relative; }
+  .main-inner{ padding-left:48px; } /* room for drag handle on the left */
   .drag-handle{
-    cursor: grab; font-size:15px; opacity:0; transition:opacity .12s;
-    color:var(--muted); padding:2px 3px;
+    position:absolute; left:-28px; top:50%; transform:translateY(-50%);
+    cursor:grab; font-size:14px; opacity:0; transition:opacity .12s;
+    color:var(--muted); background:none; border:none;
+    padding:4px 4px; line-height:1; border-radius:4px; z-index:2;
   }
-  .block-row:hover .drag-handle{ opacity:1; }
+  .block:hover > .block-row .drag-handle,
+  .block:hover > .drag-handle{ opacity:1; }
   .drag-handle:active{ cursor:grabbing; }
   .dragging{ opacity:.35; }
   .drop-over[data-drop-pos="before"]{ border-top:2px solid var(--terracotta); }
   .drop-over[data-drop-pos="after"]{ border-bottom:2px solid var(--terracotta); }
+
+  /* sidebar page drag */
+  .page-row.page-dragging{ opacity:.35; }
+  .page-row.page-drop-before{ border-top:2px solid var(--terracotta); }
+  .page-row.page-drop-after{ border-bottom:2px solid var(--terracotta); }
 
   /* ---------- Notifications ---------- */
   .notif-btn{
