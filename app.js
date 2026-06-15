@@ -30,6 +30,7 @@ const state = {
   songPickerQuery: '',
 
   typeMenu: null,         // {parentId, x, y, changeBlockId}
+  moveBlockModal: null,   // {blockId} — which block to move to another page
   sidebarOpen: false,
   notifications: [],      // [{id, user_id, block_id, page_id, page_title, content, created_at, seen}]
   notifPanelOpen: false,
@@ -342,6 +343,58 @@ async function selectPage(id, skipRender){
   state.comments = {};
   if(!skipRender) render();
   await loadBlocks(id);
+  render();
+}
+
+async function duplicatePage(page){
+  showToast('Duplication en cours…');
+  const newTitle = page.title + ' (copie)';
+  const maxOrder = state.pages.reduce((m,p)=>Math.max(m,p.order_index||0), -1);
+  const { data: newPage, error } = await sb.from('pages').insert({
+    space_id: page.space_id, title: newTitle,
+    created_by: state.session.user.id, order_index: maxOrder+1, locked: false
+  }).select().single();
+  if(error){ showToast('Erreur de duplication'); return; }
+  const { data: blocks } = await sb.from('blocks').select('*').eq('page_id', page.id).order('order_index');
+  if(blocks && blocks.length){
+    const newBlocks = blocks.map(b=>({
+      page_id: newPage.id, type: b.type, content: b.content,
+      parent_block_id: b.parent_block_id, order_index: b.order_index,
+      created_by: state.session.user.id
+    }));
+    await sb.from('blocks').insert(newBlocks);
+  }
+  state.pages.push(newPage);
+  showToast('Cours dupliqué ✓');
+  render();
+}
+
+async function duplicateBlock(block){
+  const siblings = siblingBlocks(block.parent_block_id);
+  const idx = siblings.findIndex(b=>b.id===block.id);
+  const next = siblings[idx+1];
+  const newOrder = next ? (block.order_index + next.order_index)/2 : block.order_index+1;
+  const { data: newBlock, error } = await sb.from('blocks').insert({
+    page_id: block.page_id, type: block.type, content: block.content,
+    parent_block_id: block.parent_block_id, order_index: newOrder,
+    created_by: state.session.user.id
+  }).select().single();
+  if(error){ showToast('Erreur de duplication'); return; }
+  const globalIdx = state.blocks.findIndex(b=>b.id===block.id);
+  state.blocks.splice(globalIdx+1, 0, newBlock);
+  showToast('Bloc dupliqué ✓');
+  render();
+}
+
+async function moveBlockToPage(block, targetPageId){
+  if(targetPageId === block.page_id){ state.moveBlockModal=null; render(); return; }
+  const { data: targetBlocks } = await sb.from('blocks').select('order_index').eq('page_id', targetPageId).order('order_index',{ascending:false}).limit(1);
+  const maxOrder = targetBlocks && targetBlocks.length ? targetBlocks[0].order_index+1 : 0;
+  const { error } = await sb.from('blocks').update({ page_id: targetPageId, parent_block_id: null, order_index: maxOrder }).eq('id', block.id);
+  if(error){ showToast('Erreur lors du déplacement'); return; }
+  state.blocks = state.blocks.filter(b=>b.id!==block.id);
+  state.moveBlockModal = null;
+  showToast('Bloc déplacé ✓');
   render();
 }
 
@@ -663,6 +716,7 @@ function renderApp(){
           <span class="ptitle">${esc(p.title || 'Sans titre')}</span>
           <span class="pmove">
             <button class="icon-btn lock-btn ${p.locked?'locked':''}" data-toggle-lock="${p.id}" title="${p.locked?'Déverrouiller':'Verrouiller'}">${p.locked?'🔒':'🔓'}</button>
+            <button class="icon-btn" data-duplicate-page="${p.id}" title="Dupliquer ce cours">⧉</button>
             <button class="icon-btn" data-move-page="${p.id}" data-dir="-1" title="Monter">▲</button>
             <button class="icon-btn" data-move-page="${p.id}" data-dir="1" title="Descendre">▼</button>
             <button class="icon-btn" data-delete-page="${p.id}" title="Supprimer">✕</button>
@@ -686,6 +740,7 @@ function renderApp(){
     </div>
   </div>
   ${state.typeMenu ? renderTypeMenu() : ''}
+  ${state.moveBlockModal ? renderMoveBlockModal() : ''}
   </div>
   `;
 }
@@ -741,6 +796,8 @@ function renderBlock(block, depth, locked){
     <div class="block-controls">
       ${renderCommentToggle(block)}
       <button class="icon-btn" data-change-type="${block.id}" title="Changer le type de bloc">⇄</button>
+      <button class="icon-btn" data-duplicate-block="${block.id}" title="Dupliquer ce bloc">⧉</button>
+      <button class="icon-btn" data-move-block-to="${block.id}" title="Déplacer vers un autre cours">↗</button>
       <button class="icon-btn" data-move="${block.id}" data-dir="-1" ${canUp?'':'disabled style="opacity:.25"'} title="Monter">▲</button>
       <button class="icon-btn" data-move="${block.id}" data-dir="1" ${canDown?'':'disabled style="opacity:.25"'} title="Descendre">▼</button>
       <button class="icon-btn" data-delete-block="${block.id}" title="Supprimer">🗑</button>
@@ -896,6 +953,33 @@ function renderTypeMenu(){
   </div>`;
 }
 
+function renderMoveBlockModal(){
+  const {blockId} = state.moveBlockModal;
+  const block = state.blocks.find(b=>b.id===blockId);
+  if(!block) return '';
+  const preview = (block.content && (block.content.text||block.content.title||'')) || block.type;
+  // pages from current space only (already loaded); other spaces need a note
+  const otherPages = state.pages.filter(p=>p.id!==block.page_id).sort((a,b)=>a.order_index-b.order_index);
+  return `<div class="menu-overlay" style="display:flex;align-items:center;justify-content:center;background:rgba(43,36,32,.35);" data-close-move-modal="1">
+    <div style="background:var(--surface);border-radius:14px;width:min(480px,92vw);max-height:75vh;display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--border);" onclick="event.stopPropagation()">
+      <div style="padding:16px 18px;border-bottom:1px solid var(--border);">
+        <h3 style="margin:0 0 4px;font-size:16px;">Déplacer ce bloc vers un autre cours</h3>
+        <p style="margin:0;font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">« ${esc(preview.substring(0,60))}${preview.length>60?'…':''} »</p>
+      </div>
+      <div style="overflow-y:auto;padding:8px;">
+        ${otherPages.length ? otherPages.map(p=>`
+          <button data-move-to-page="${p.id}" style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:none;padding:9px 12px;border-radius:8px;font-size:13.5px;cursor:pointer;color:var(--ink);">
+            📄 ${esc(p.title||'Sans titre')}
+          </button>
+        `).join('') : `<p style="padding:16px;color:var(--muted);font-size:13px;">Aucun autre cours disponible dans cet espace.</p>`}
+      </div>
+      <div style="padding:10px 18px;border-top:1px solid var(--border);text-align:right;">
+        <button class="icon-btn" data-close-move-modal="1" style="font-size:13px;padding:6px 12px;">Fermer</button>
+      </div>
+    </div>
+  </div>`;
+}
+
 /* ---- SONG PICKER MODAL (rendered separately, appended to body) ---- */
 function renderSongPicker(){
   if(!state.songPickerForBlock) return '';
@@ -973,7 +1057,7 @@ function attachAppEvents(){
   // pages
   document.querySelectorAll('[data-select-page]').forEach(el=>{
     el.addEventListener('click', (e)=>{
-      if(e.target.closest('[data-move-page],[data-delete-page]')) return;
+      if(e.target.closest('[data-move-page],[data-delete-page],[data-duplicate-page],[data-lock-page],[data-toggle-lock]')) return;
       selectPage(el.dataset.selectPage);
       state.sidebarOpen=false;
     });
@@ -998,6 +1082,39 @@ function attachAppEvents(){
   document.querySelectorAll('[data-move-page]').forEach(el=>{
     el.addEventListener('click', (e)=>{ e.stopPropagation(); const p=state.pages.find(x=>x.id===el.dataset.movePage); if(p) movePage(p, parseInt(el.dataset.dir)); });
   });
+  document.querySelectorAll('[data-duplicate-page]').forEach(el=>{
+    el.addEventListener('click', (e)=>{ e.stopPropagation(); const p=state.pages.find(x=>x.id===el.dataset.duplicatePage); if(p) duplicatePage(p); });
+  });
+
+  // block duplicate + move to another page
+  document.querySelectorAll('[data-duplicate-block]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const block = state.blocks.find(b=>b.id===el.dataset.duplicateBlock);
+      if(block) duplicateBlock(block);
+    });
+  });
+  document.querySelectorAll('[data-move-block-to]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      state.moveBlockModal = { blockId: el.dataset.moveBlockTo };
+      render();
+    });
+  });
+
+  // move block modal
+  if(state.moveBlockModal){
+    const modal = document.querySelector('[data-close-move-modal]');
+    if(modal){
+      modal.addEventListener('click', (e)=>{
+        if(e.target.dataset.closeMoveModal !== undefined){ state.moveBlockModal=null; render(); }
+      });
+    }
+    document.querySelectorAll('[data-move-to-page]').forEach(el=>{
+      el.addEventListener('click', ()=>{
+        const block = state.blocks.find(b=>b.id===state.moveBlockModal.blockId);
+        if(block) moveBlockToPage(block, el.dataset.moveToPage);
+      });
+    });
+  }
 
   // page title
   const pt = document.querySelector('[data-page-title]');
