@@ -1074,8 +1074,10 @@ function renderSongBlock(block, c, locked){
   return `<div class="song-card">
     <div class="song-head" data-song-toggle="${block.id}">
       <div class="song-note">♪</div>
-      <div class="song-title">${esc(c.title||'Sans titre')}</div>
-      <div class="song-cat">${esc(SONG_CATEGORIES[c.category]||c.category||'')}</div>
+      <div class="song-head-text">
+        <div class="song-title">${esc(c.title||'Sans titre')}</div>
+        <div class="song-cat">${esc(SONG_CATEGORIES[c.category]||c.category||'')}</div>
+      </div>
       ${!locked ? `<button class="icon-btn" data-pick-song="${block.id}" title="Changer de chant">⇄</button>` : ''}
     </div>
     <div class="song-body ${isOpen?'open':''}">
