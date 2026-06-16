@@ -407,6 +407,7 @@ async function moveBlockToPage(block, targetPageId){
 }
 
 async function deletePage(page){
+  if(page.locked){ showToast('Ce cours est verrouillé — déverrouillez-le pour le supprimer.'); return; }
   if(!confirm(`Supprimer le cours « ${page.title} » et tout son contenu ?\n\nCette action est irréversible.`)) return;
   const { data: blocks } = await sb.from('blocks').select('id').eq('page_id', page.id);
   const ids = (blocks||[]).map(b=>b.id);
@@ -888,7 +889,7 @@ function renderApp(){
             <button class="icon-btn" data-duplicate-page="${p.id}" title="Dupliquer ce cours">⧉</button>
             <button class="icon-btn" data-move-page="${p.id}" data-dir="-1" title="Monter">▲</button>
             <button class="icon-btn" data-move-page="${p.id}" data-dir="1" title="Descendre">▼</button>
-            <button class="icon-btn" data-delete-page="${p.id}" title="Supprimer">✕</button>
+            ${!p.locked ? `<button class="icon-btn" data-delete-page="${p.id}" title="Supprimer">✕</button>` : ''}
           </span>
         </div>
       `).join('')}
