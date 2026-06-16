@@ -228,10 +228,16 @@
     width:30px; height:30px; border-radius:50%; background:var(--terracotta-soft); color:var(--terracotta);
     display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0;
   }
-  .song-title{font-family:'Fraunces',serif; font-weight:600; font-size:15px; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .song-head-text{ flex:1; min-width:0; display:flex; flex-direction:column; gap:3px; }
+  .song-title{font-family:'Fraunces',serif; font-weight:600; font-size:15px; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
   .song-cat{
     font-size:10px; text-transform:uppercase; letter-spacing:.6px; font-weight:700;
-    color:var(--terracotta); background:var(--terracotta-soft); padding:3px 8px; border-radius:99px; flex-shrink:0;
+    color:var(--terracotta); background:var(--terracotta-soft); padding:3px 8px; border-radius:99px;
+    align-self:flex-start;
+  }
+  @media (max-width: 480px){
+    .song-head{ align-items:flex-start; }
+    .song-head .icon-btn{ flex-shrink:0; }
   }
   .song-body{padding:0 14px 14px 14px; border-top:1px solid var(--border); display:none;}
   .song-body.open{display:block; padding-top:10px;}
@@ -322,6 +328,10 @@
   /* ---------- Drag & Drop ---------- */
   .block{ position:relative; }
   .main-inner{ padding-left:48px; } /* room for drag handle on the left */
+  @media (max-width: 480px){
+    .main-inner{ padding-left:28px; }
+    .drag-handle{ left:-20px; font-size:12px; }
+  }
   .drag-handle{
     position:absolute; left:-28px; top:50%; transform:translateY(-50%);
     cursor:grab; font-size:14px; opacity:0; transition:opacity .12s;
