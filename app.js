@@ -406,6 +406,172 @@ async function moveBlockToPage(block, targetPageId){
   render();
 }
 
+/* ======================= ARCHIVE / EXPORT ======================= */
+async function archiveSpace(spaceId){
+  const space = state.spaces.find(s=>s.id===spaceId);
+  if(!space){ showToast('Espace introuvable'); return; }
+  showToast('Préparation de l\'archive…');
+
+  const { data: pages, error: pagesErr } = await sb.from('pages').select('*').eq('space_id', spaceId).order('order_index',{ascending:true});
+  if(pagesErr || !pages){ showToast('Erreur lors de la récupération des cours'); return; }
+
+  const pageIds = pages.map(p=>p.id);
+  let blocks = [];
+  if(pageIds.length){
+    const { data: blocksData, error: blocksErr } = await sb.from('blocks').select('*').in('page_id', pageIds).order('order_index',{ascending:true});
+    if(blocksErr){ showToast('Erreur lors de la récupération du contenu'); return; }
+    blocks = blocksData || [];
+  }
+
+  const html = buildArchiveHtml(space, pages, blocks);
+  const blob = new Blob([html], {type:'text/html'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const safeName = space.name.replace(/[^a-z0-9_\-]+/gi, '_');
+  a.href = url;
+  a.download = `archive_${safeName}.html`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('Archive téléchargée ✓');
+}
+
+function buildArchiveHtml(space, pages, blocks){
+  const blocksByPage = {};
+  blocks.forEach(b=>{
+    if(!blocksByPage[b.page_id]) blocksByPage[b.page_id] = [];
+    blocksByPage[b.page_id].push(b);
+  });
+
+  function renderArchiveBlock(b, allBlocks, depth){
+    const c = b.content || {};
+    const indent = depth * 20;
+    let inner = '';
+    switch(b.type){
+      case 'heading': inner = `<h2 style="margin:18px 0 6px;font-size:22px;">${esc(c.text||'')}</h2>`; break;
+      case 'subheading': inner = `<h3 style="margin:14px 0 4px;font-size:17px;color:#5a4a2c;">${esc(c.text||'')}</h3>`; break;
+      case 'paragraph': inner = `<p style="margin:4px 0;line-height:1.6;white-space:pre-wrap;">${esc(c.text||'')}</p>`; break;
+      case 'bullet': inner = `<div style="margin:2px 0;padding-left:${indent}px;">• ${esc(c.text||'')}</div>`; break;
+      case 'numbered': inner = `<div style="margin:2px 0;padding-left:${indent}px;">${esc(c.text||'')}</div>`; break;
+      case 'callout': inner = `<div style="background:#F6E8C8;border-radius:8px;padding:10px 14px;margin:8px 0;white-space:pre-wrap;">${esc(c.emoji||'💡')} ${esc(c.text||'')}</div>`; break;
+      case 'divider': inner = `<hr style="border:none;border-top:1px dashed #ccc;margin:14px 0;">`; break;
+      case 'video': inner = c.url ? `<p style="margin:6px 0;">🎬 <a href="${esc(c.url)}" target="_blank">${esc(c.url)}</a>${c.caption?` — <em>${esc(c.caption)}</em>`:''}</p>` : '';
+        break;
+      case 'song':
+        inner = `<div style="border:1px solid #C1502E;border-radius:8px;padding:10px 14px;margin:8px 0;">
+          <strong>♪ ${esc(c.title||'Sans titre')}</strong>${c.category?` <span style="font-size:11px;color:#C1502E;">(${esc(SONG_CATEGORIES[c.category]||c.category)})</span>`:''}
+          ${c.lyrics?`<div style="white-space:pre-wrap;margin-top:6px;font-size:13.5px;">${esc(c.lyrics)}</div>`:''}
+          ${c.mnemonic?`<div style="margin-top:6px;font-style:italic;color:#2F6F4F;font-size:12.5px;">💭 ${esc(c.mnemonic)}</div>`:''}
+          ${c.mediaLink?`<p style="margin-top:6px;"><a href="${esc(c.mediaLink)}" target="_blank">🔗 Écouter / regarder</a></p>`:''}
+        </div>`;
+        break;
+      case 'toggle':
+        const children = allBlocks.filter(x=>x.parent_block_id===b.id).sort((a,b2)=>a.order_index-b2.order_index);
+        inner = `<details style="margin:8px 0;" open><summary style="cursor:pointer;font-weight:600;color:#2F6F4F;">${esc(c.text||'')}</summary>
+          <div style="margin-left:18px;border-left:2px solid #DCEAE1;padding-left:14px;margin-top:6px;">
+            ${children.map(ch=>renderArchiveBlock(ch, allBlocks, depth+1)).join('')}
+          </div></details>`;
+        return inner;
+    }
+    return inner;
+  }
+
+  const pagesHtml = pages.map(p=>{
+    const pageBlocks = (blocksByPage[p.id]||[]).filter(b=>!b.parent_block_id).sort((a,b)=>a.order_index-b.order_index);
+    const allPageBlocks = blocksByPage[p.id] || [];
+    return `<section style="margin-bottom:48px;padding-bottom:24px;border-bottom:2px solid #eee;">
+      <h1 style="font-size:26px;margin-bottom:4px;">${esc(p.title||'Sans titre')}</h1>
+      <div>${pageBlocks.map(b=>renderArchiveBlock(b, allPageBlocks, 0)).join('')}</div>
+    </section>`;
+  }).join('\n');
+
+  // hidden JSON payload for potential re-import
+  const payload = JSON.stringify({ space: {name: space.name}, pages, blocks }, null, 0);
+  const payloadEscaped = payload.replace(/<\/script>/g, '<\\/script>');
+
+  return `<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Archive — ${esc(space.name)}</title>
+<style>
+  body{ font-family:'Georgia',serif; max-width:760px; margin:40px auto; padding:0 24px; color:#2B2420; background:#F6F1E6; }
+  a{ color:#C1502E; }
+  h1,h2,h3{ font-family:Georgia,serif; }
+  .archive-header{ text-align:center; margin-bottom:40px; padding-bottom:20px; border-bottom:3px double #C1502E; }
+  .archive-header p{ color:#9C8C77; font-size:13px; }
+</style>
+</head>
+<body>
+  <div class="archive-header">
+    <h1>🪘 ${esc(space.name)}</h1>
+    <p>Archive Roda de Notas — générée le ${new Date().toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})} — ${pages.length} cours</p>
+  </div>
+  ${pagesHtml}
+  <script type="application/json" id="roda-archive-data">${payloadEscaped}</script>
+</body>
+</html>`;
+}
+
+async function importArchive(file){
+  showToast('Lecture de l\'archive…');
+  try{
+    const text = await file.text();
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(text, 'text/html');
+    const dataEl = doc.getElementById('roda-archive-data');
+    if(!dataEl){ showToast('Fichier non reconnu comme archive Roda de Notas'); return; }
+    const payload = JSON.parse(dataEl.textContent);
+    const { space, pages, blocks } = payload;
+    if(!space || !pages){ showToast('Archive invalide ou corrompue'); return; }
+
+    let newName = space.name;
+    if(state.spaces.some(s=>s.name === newName)){
+      newName = space.name + ' (importé)';
+    }
+    const maxOrder = state.spaces.reduce((m,s)=>Math.max(m,s.order_index||0), -1);
+    const { data: newSpace, error: spaceErr } = await sb.from('spaces').insert({
+      name: newName, created_by: state.session.user.id, order_index: maxOrder+1
+    }).select().single();
+    if(spaceErr){ showToast('Erreur lors de la création de l\'espace'); return; }
+
+    const pageIdMap = {};
+    for(const p of pages){
+      const { data: newPage, error: pageErr } = await sb.from('pages').insert({
+        space_id: newSpace.id, title: p.title, created_by: state.session.user.id,
+        order_index: p.order_index, locked: false
+      }).select().single();
+      if(pageErr) continue;
+      pageIdMap[p.id] = newPage.id;
+    }
+
+    const blockIdMap = {};
+    const sortedBlocks = [...(blocks||[])].sort((a,b)=> (a.parent_block_id?1:0) - (b.parent_block_id?1:0));
+    for(const b of sortedBlocks){
+      const newPageId = pageIdMap[b.page_id];
+      if(!newPageId) continue;
+      const newParentId = b.parent_block_id ? blockIdMap[b.parent_block_id] : null;
+      const { data: newBlock, error: blockErr } = await sb.from('blocks').insert({
+        page_id: newPageId, type: b.type, content: b.content,
+        parent_block_id: newParentId, order_index: b.order_index,
+        created_by: state.session.user.id
+      }).select().single();
+      if(blockErr) continue;
+      blockIdMap[b.id] = newBlock.id;
+    }
+
+    showToast(`Archive importée : « ${newName} » ✓`);
+    await loadSpaces();
+    state.currentSpaceId = newSpace.id;
+    await loadPages(newSpace.id);
+    render();
+  } catch(err){
+    console.error('importArchive error', err);
+    showToast('Erreur lors de l\'import : fichier illisible');
+  }
+}
+
 async function deletePage(page){
   if(page.locked){ showToast('Ce cours est verrouillé — déverrouillez-le pour le supprimer.'); return; }
   if(!confirm(`Supprimer le cours « ${page.title} » et tout son contenu ?\n\nCette action est irréversible.`)) return;
@@ -873,9 +1039,14 @@ function renderApp(){
         </div>
       `).join('')}
       <button class="add-link" data-create-space="1">＋ Nouvel espace</button>
+      <button class="add-link" data-import-archive="1" style="color:var(--muted);">⬆ Importer une archive</button>
+      <input type="file" id="archive-file-input" accept=".html" style="display:none;">
     </div>
     <div class="sidebar-section pages">
-      <p class="section-label">${space ? esc(space.name) : 'Cours'}</p>
+      <p class="section-label" style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
+        <span>${space ? esc(space.name) : 'Cours'}</span>
+        ${space ? `<button class="archive-btn" data-archive-space="${space.id}" title="Archiver cet espace en HTML">⬇ Archiver</button>` : ''}
+      </p>
       ${state.pages.map((p,i)=>`
         <div class="page-row ${p.id===state.currentPageId?'active':''}" data-select-page="${p.id}" data-page-row="${p.id}" draggable="true">
           <span class="ptitle">${esc(p.title || 'Sans titre')}</span>
@@ -1262,6 +1433,20 @@ function attachAppEvents(){
   document.querySelectorAll('[data-move-page]').forEach(el=>{
     el.addEventListener('click', (e)=>{ e.stopPropagation(); const p=state.pages.find(x=>x.id===el.dataset.movePage); if(p) movePage(p, parseInt(el.dataset.dir)); });
   });
+  document.querySelectorAll('[data-archive-space]').forEach(el=>{
+    el.addEventListener('click', (e)=>{ e.stopPropagation(); archiveSpace(el.dataset.archiveSpace); });
+  });
+  const importBtn = document.querySelector('[data-import-archive]');
+  const fileInput = document.getElementById('archive-file-input');
+  if(importBtn && fileInput){
+    importBtn.addEventListener('click', ()=> fileInput.click());
+    fileInput.addEventListener('change', (e)=>{
+      const file = e.target.files[0];
+      if(file) importArchive(file);
+      fileInput.value = '';
+    });
+  }
+
   document.querySelectorAll('[data-duplicate-page]').forEach(el=>{
     el.addEventListener('click', (e)=>{ e.stopPropagation(); const p=state.pages.find(x=>x.id===el.dataset.duplicatePage); if(p) duplicatePage(p); });
   });
