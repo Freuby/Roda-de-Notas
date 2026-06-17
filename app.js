@@ -51,7 +51,7 @@ const BLOCK_TYPES = [
   { type:'bullet', label:'Liste à puces', icon:'•' },
   { type:'numbered', label:'Liste numérotée', icon:'1.' },
   { type:'callout', label:'Encadré', icon:'!' },
-  { type:'video', label:'Vidéo YouTube', icon:'▶' },
+  { type:'video', label:'Vidéo', icon:'▶' },
   { type:'song', label:'Chant (base de données)', icon:'♪' },
   { type:'divider', label:'Séparateur', icon:'—' },
 ];
@@ -75,16 +75,45 @@ function showToast(msg){
   t._timer = setTimeout(()=> t.classList.remove('show'), 2200);
 }
 
-function extractYoutubeId(url){
+function detectVideoEmbed(url){
   if(!url) return null;
-  const patterns = [
+
+  // YouTube
+  const ytPatterns = [
     /youtu\.be\/([A-Za-z0-9_-]{6,})/,
     /youtube\.com\/watch\?v=([A-Za-z0-9_-]{6,})/,
     /youtube\.com\/embed\/([A-Za-z0-9_-]{6,})/,
     /youtube\.com\/shorts\/([A-Za-z0-9_-]{6,})/
   ];
-  for(const p of patterns){ const m = url.match(p); if(m) return m[1]; }
+  for(const p of ytPatterns){
+    const m = url.match(p);
+    if(m) return { platform:'youtube', id:m[1], embedUrl:`https://www.youtube.com/embed/${m[1]}`, watchUrl:`https://www.youtube.com/watch?v=${m[1]}` };
+  }
+
+  // Instagram (posts, reels, tv)
+  if(/instagram\.com\/(p|reel|tv)\//.test(url)){
+    // Instagram requires the trailing slash for its embed endpoint
+    const cleanUrl = url.split('?')[0].replace(/\/?$/, '/');
+    return { platform:'instagram', embedUrl:`${cleanUrl}embed`, watchUrl:cleanUrl };
+  }
+
+  // Facebook (videos, watch, reels, posts with video)
+  if(/facebook\.com|fb\.watch/.test(url)){
+    const cleanUrl = url.split('?')[0];
+    return {
+      platform:'facebook',
+      embedUrl:`https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(cleanUrl)}&show_text=0`,
+      watchUrl:cleanUrl
+    };
+  }
+
   return null;
+}
+
+// kept for backward compatibility with older calls
+function extractYoutubeId(url){
+  const v = detectVideoEmbed(url);
+  return (v && v.platform==='youtube') ? v.id : null;
 }
 
 function normalize(s){
@@ -1090,6 +1119,23 @@ function render(){
   attachDragDrop();
   attachSidebarDragDrop();
   attachSidebarResize();
+  processInstagramEmbeds();
+}
+
+let instagramScriptLoading = false;
+function processInstagramEmbeds(){
+  if(!document.querySelector('.instagram-media')) return;
+  if(window.instgrm && window.instgrm.Embeds){
+    window.instgrm.Embeds.process();
+    return;
+  }
+  if(instagramScriptLoading) return;
+  instagramScriptLoading = true;
+  const script = document.createElement('script');
+  script.src = 'https://www.instagram.com/embed.js';
+  script.async = true;
+  script.onload = ()=>{ if(window.instgrm) window.instgrm.Embeds.process(); };
+  document.body.appendChild(script);
 }
 
 /* ---- AUTH SCREEN ---- */
@@ -1435,15 +1481,29 @@ function renderToggleBlock(block, c, depth, controls, locked){
 }
 
 function renderVideoBlock(block, c, locked){
-  const ytId = extractYoutubeId(c.url);
+  const video = detectVideoEmbed(c.url);
+  const platformLabels = { youtube:'YouTube', instagram:'Instagram', facebook:'Facebook' };
+  const platformIcons = { youtube:'▶', instagram:'📷', facebook:'👍' };
+
+  let frameHtml = '';
+  if(video){
+    if(video.platform === 'youtube'){
+      frameHtml = `<div class="video-frame"><iframe src="${video.embedUrl}" title="Vidéo YouTube" allowfullscreen></iframe></div>`;
+    } else if(video.platform === 'instagram'){
+      frameHtml = `<div class="video-frame video-frame-embed-script">
+        <blockquote class="instagram-media" data-instgrm-permalink="${esc(video.watchUrl)}" data-instgrm-version="14" style="margin:0;width:100%;"></blockquote>
+      </div>`;
+    } else if(video.platform === 'facebook'){
+      frameHtml = `<div class="video-frame"><iframe src="${video.embedUrl}" title="Vidéo Facebook" allowfullscreen scrolling="no" frameborder="0" allow="autoplay; encrypted-media; picture-in-picture"></iframe></div>`;
+    }
+    frameHtml += `<p style="margin:6px 0 0;"><a href="${video.watchUrl}" target="_blank" rel="noopener" style="color:var(--terracotta); font-size:12.5px;">↗ ${platformIcons[video.platform]} Regarder sur ${platformLabels[video.platform]} (si la vidéo ne s'affiche pas ci-dessus)</a></p>`;
+  } else if(c.url){
+    frameHtml = `<div class="video-frame"><div class="video-placeholder">Lien non reconnu (YouTube, Instagram ou Facebook attendu)</div></div>`;
+  }
+
   return `<div class="video-wrap">
-    ${!locked ? `<input class="video-url-input" data-field="url" placeholder="Collez un lien YouTube…" value="${esc(c.url||'')}">` : ''}
-    ${ytId ? `
-      <div class="video-frame"><iframe src="https://www.youtube.com/embed/${ytId}" title="Vidéo YouTube" allowfullscreen></iframe></div>
-      <p style="margin:6px 0 0;"><a href="https://www.youtube.com/watch?v=${ytId}" target="_blank" rel="noopener" style="color:var(--terracotta); font-size:12.5px;">↗ Regarder sur YouTube (si la vidéo ne s'affiche pas ci-dessus)</a></p>
-    ` : c.url ? `
-      <div class="video-frame"><div class="video-placeholder">Lien non reconnu comme vidéo YouTube</div></div>
-    ` : (!locked ? '' : '')}
+    ${!locked ? `<input class="video-url-input" data-field="url" placeholder="Collez un lien YouTube, Instagram ou Facebook…" value="${esc(c.url||'')}">` : ''}
+    ${frameHtml}
     ${!locked ? `<div class="video-caption" contenteditable="true" data-field="caption" data-placeholder="Légende (optionnel)…">${esc(c.caption||'')}</div>` :
       (c.caption ? `<div class="video-caption">${esc(c.caption)}</div>` : '')}
   </div>`;
