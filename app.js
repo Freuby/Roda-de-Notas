@@ -34,6 +34,10 @@ const state = {
   moveBlockModal: null,   // {blockId} — which block to move to another page
   sidebarOpen: false,
   notifications: [],      // [{id, user_id, block_id, page_id, page_title, content, created_at, seen}]
+  allPrerequisites: null,    // cached list of all prerequisite reference items
+  pagePrereqIds: new Set(),  // prerequisite_id set for the currently open page
+  spacePrereqCoverage: {},   // spaceId -> {2: pct, 3: pct, 4: pct}
+  prereqPanelOpen: false,    // whether the selector panel is shown on the page
   notifPanelOpen: false,
   notifTimer: null,
 };
@@ -283,6 +287,7 @@ async function loadSpaces(){
   if(state.currentSpaceId){
     await loadPages(state.currentSpaceId);
   }
+  computeAllSpacesCoverage();
 }
 
 async function createSpace(){
@@ -306,6 +311,7 @@ async function selectSpace(id){
   render();
   await loadPages(id);
   render();
+  computeSpaceCoverage(id);
 }
 
 async function renameSpace(space){
@@ -342,9 +348,71 @@ async function selectPage(id, skipRender){
   state.currentPageId = id;
   state.blocks = [];
   state.comments = {};
+  state.pagePrereqIds = new Set();
+  state.prereqPanelOpen = false;
   if(!skipRender) render();
-  await loadBlocks(id);
+  await Promise.all([loadBlocks(id), loadPagePrerequisites(id), ensurePrerequisitesLoaded()]);
   render();
+}
+
+async function ensurePrerequisitesLoaded(){
+  if(state.allPrerequisites) return;
+  const { data, error } = await sb.from('prerequisites').select('*').order('corde').order('category').order('order_index');
+  if(error){ console.error('prerequisites load error', error); state.allPrerequisites = []; return; }
+  state.allPrerequisites = data || [];
+}
+
+async function loadPagePrerequisites(pageId){
+  const { data, error } = await sb.from('page_prerequisites').select('prerequisite_id').eq('page_id', pageId);
+  if(error){ console.error('page_prerequisites load error', error); return; }
+  state.pagePrereqIds = new Set((data||[]).map(r=>r.prerequisite_id));
+}
+
+async function togglePagePrerequisite(prereqId){
+  const pageId = state.currentPageId;
+  if(!pageId) return;
+  const has = state.pagePrereqIds.has(prereqId);
+  if(has){
+    state.pagePrereqIds.delete(prereqId);
+    render();
+    const { error } = await sb.from('page_prerequisites').delete().eq('page_id', pageId).eq('prerequisite_id', prereqId);
+    if(error){ showToast('Erreur de sauvegarde'); state.pagePrereqIds.add(prereqId); render(); }
+  } else {
+    state.pagePrereqIds.add(prereqId);
+    render();
+    const { error } = await sb.from('page_prerequisites').insert({ page_id: pageId, prerequisite_id: prereqId });
+    if(error){ showToast('Erreur de sauvegarde'); state.pagePrereqIds.delete(prereqId); render(); }
+  }
+  computeSpaceCoverage(state.currentSpaceId);
+}
+
+async function computeSpaceCoverage(spaceId){
+  if(!spaceId) return;
+  await ensurePrerequisitesLoaded();
+  const { data: pagesInSpace, error: pagesErr } = await sb.from('pages').select('id').eq('space_id', spaceId);
+  if(pagesErr) return;
+  const pageIds = (pagesInSpace||[]).map(p=>p.id);
+  let coveredIds = new Set();
+  if(pageIds.length){
+    const { data, error } = await sb.from('page_prerequisites').select('prerequisite_id').in('page_id', pageIds);
+    if(!error) coveredIds = new Set((data||[]).map(r=>r.prerequisite_id));
+  }
+  const byCorde = {};
+  ['2','3','4'].forEach(corde=>{
+    const items = state.allPrerequisites.filter(p=>p.corde===corde);
+    const total = items.length;
+    const covered = items.filter(p=>coveredIds.has(p.id)).length;
+    byCorde[corde] = total ? Math.round((covered/total)*100) : 0;
+  });
+  state.spacePrereqCoverage[spaceId] = byCorde;
+  render();
+}
+
+async function computeAllSpacesCoverage(){
+  await ensurePrerequisitesLoaded();
+  for(const sp of state.spaces){
+    await computeSpaceCoverage(sp.id);
+  }
 }
 
 async function duplicatePage(page){
@@ -588,6 +656,7 @@ async function deletePage(page){
     if(state.pages.length) await selectPage(state.pages[0].id, true);
   }
   render();
+  computeSpaceCoverage(page.space_id);
 }
 
 async function movePage(page, dir){
@@ -1032,12 +1101,21 @@ function renderApp(){
     </div>
     <div class="sidebar-section spaces">
       <p class="section-label">Espaces</p>
-      ${state.spaces.map(s=>`
+      ${state.spaces.map(s=>{
+        const cov = state.spacePrereqCoverage[s.id];
+        return `
         <div class="space-row ${s.id===state.currentSpaceId?'active':''}" data-select-space="${s.id}" data-rename-space="${s.id}">
           <div class="space-dot">${esc(initials(s.name))}</div>
-          <div class="space-name">${esc(s.name)}</div>
+          <div class="space-name-block">
+            <div class="space-name">${esc(s.name)}</div>
+            ${cov ? `<div class="space-coverage">
+              <span class="cov-pill cov-2">2e ${cov['2']}%</span>
+              <span class="cov-pill cov-3">3e ${cov['3']}%</span>
+              <span class="cov-pill cov-4">4e ${cov['4']}%</span>
+            </div>` : ''}
+          </div>
         </div>
-      `).join('')}
+      `;}).join('')}
       <button class="add-link" data-create-space="1">＋ Nouvel espace</button>
       <button class="add-link" data-import-archive="1" style="color:var(--muted);">⬆ Importer une archive</button>
       <input type="file" id="archive-file-input" accept=".html" style="display:none;">
@@ -1119,6 +1197,7 @@ function renderPage(page){
         🔒 Ce cours est verrouillé — consultation uniquement.
         <button data-toggle-lock="${page.id}">Déverrouiller</button>
       </div>` : ''}
+    ${renderPrerequisitesSection(locked)}
     <div class="blocks-list">
       ${topBlocks.map(b=>renderBlock(b, 0, locked)).join('')}
     </div>
@@ -1126,6 +1205,74 @@ function renderPage(page){
       <button class="add-block-btn" data-add-root="1">＋ Ajouter un bloc</button>
     </div>` : ''}
   `;
+}
+
+function renderPrerequisitesSection(locked){
+  const selectedItems = (state.allPrerequisites||[]).filter(p=>state.pagePrereqIds.has(p.id));
+  const hasSelection = selectedItems.length > 0;
+
+  if(locked && !hasSelection) return '';
+
+  if(!state.prereqPanelOpen || locked){
+    if(!hasSelection){
+      if(locked) return '';
+      return `<div class="prereq-summary-bar">
+        <div class="prereq-summary-content">
+          <span class="prereq-summary-empty">Aucun pré-requis sélectionné pour ce cours</span>
+        </div>
+        <button class="prereq-edit-btn" data-toggle-prereq-panel="1">＋ Sélectionner</button>
+      </div>`;
+    }
+    return `<div class="prereq-summary-bar">
+      <div class="prereq-summary-content">
+        <span class="prereq-summary-label">✓ Pré-requis travaillés (${selectedItems.length})</span>
+        <div class="prereq-summary-tags">
+          ${selectedItems.slice(0,8).map(p=>`<span class="prereq-tag corde-${p.corde}">${esc(p.label)}</span>`).join('')}
+          ${selectedItems.length>8 ? `<span class="prereq-tag-more">+${selectedItems.length-8}</span>` : ''}
+        </div>
+      </div>
+      ${!locked ? `<button class="prereq-edit-btn" data-toggle-prereq-panel="1">Modifier</button>` : ''}
+    </div>`;
+  }
+
+  // panel open: full selector grouped by corde > category
+  const cordeLabels = {'2':'2e corde — débutant', '3':'3e corde — intermédiaire', '4':'4e corde — avancé'};
+  const categoryLabels = {
+    esquives:'Esquives', coups:'Coups', acrobatiques:'Acrobatiques', codes:'Codes',
+    monde:'Le monde de la capoeira', musicalite:'Musicalité', bases:'Bases',
+    deplacements:'Déplacements', desequilibrants:'Déséquilibrants', chamadas:'Chamadas', maculele:'Maculêlê'
+  };
+  const items = state.allPrerequisites || [];
+  const byCorde = {'2':[], '3':[], '4':[]};
+  items.forEach(p=> byCorde[p.corde] && byCorde[p.corde].push(p));
+
+  return `<div class="prereq-panel">
+    <div class="prereq-panel-head">
+      <span>Sélectionner les pré-requis travaillés</span>
+      <button class="icon-btn" data-toggle-prereq-panel="1" title="Fermer">✕</button>
+    </div>
+    <div class="prereq-panel-body">
+      ${['2','3','4'].map(corde=>{
+        const byCat = {};
+        byCorde[corde].forEach(p=>{ if(!byCat[p.category]) byCat[p.category]=[]; byCat[p.category].push(p); });
+        return `<div class="prereq-corde-block corde-${corde}">
+          <h4>${cordeLabels[corde]}</h4>
+          ${Object.keys(byCat).map(cat=>`
+            <div class="prereq-cat-group">
+              <p class="prereq-cat-label">${esc(categoryLabels[cat]||cat)}</p>
+              <div class="prereq-chips">
+                ${byCat[cat].map(p=>`
+                  <button class="prereq-chip ${state.pagePrereqIds.has(p.id)?'checked':''}" data-toggle-prereq="${p.id}">
+                    ${state.pagePrereqIds.has(p.id)?'✓ ':''}${esc(p.label)}
+                  </button>
+                `).join('')}
+              </div>
+            </div>
+          `).join('')}
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
 }
 
 /* ---- BLOCK RENDER ---- */
@@ -1362,6 +1509,14 @@ function renderSongPicker(){
 
 /* ======================= EVENTS ======================= */
 function attachAppEvents(){
+  // prerequisites panel toggle and chips
+  document.querySelectorAll('[data-toggle-prereq-panel]').forEach(el=>{
+    el.addEventListener('click', ()=>{ state.prereqPanelOpen = !state.prereqPanelOpen; render(); });
+  });
+  document.querySelectorAll('[data-toggle-prereq]').forEach(el=>{
+    el.addEventListener('click', ()=> togglePagePrerequisite(el.dataset.togglePrereq));
+  });
+
   // song picker overlay (separate from main render to allow live search)
   if(state.songPickerForBlock){
     document.querySelectorAll('body > .menu-overlay').forEach(o=>o.remove());
