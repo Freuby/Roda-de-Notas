@@ -322,6 +322,61 @@ async function renameSpace(space){
   await sb.from('spaces').update({name:space.name}).eq('id', space.id);
 }
 
+async function moveSpace(space, dir){
+  const idx = state.spaces.findIndex(s=>s.id===space.id);
+  const swapIdx = idx + dir;
+  if(swapIdx<0 || swapIdx>=state.spaces.length) return;
+  const other = state.spaces[swapIdx];
+  const a = space.order_index||0, b = other.order_index||0;
+  space.order_index = b; other.order_index = a;
+  [state.spaces[idx], state.spaces[swapIdx]] = [state.spaces[swapIdx], state.spaces[idx]];
+  render();
+  await sb.from('spaces').update({order_index:space.order_index}).eq('id',space.id);
+  await sb.from('spaces').update({order_index:other.order_index}).eq('id',other.id);
+}
+
+async function deleteSpace(space){
+  const { data: pages } = await sb.from('pages').select('id').eq('space_id', space.id);
+  const pageCount = (pages||[]).length;
+
+  const firstMsg = pageCount
+    ? `Supprimer l'espace « ${space.name} » et ses ${pageCount} cours (avec tout leur contenu) ?\n\nCette action est irréversible.`
+    : `Supprimer l'espace « ${space.name} » ?\n\nCette action est irréversible.`;
+  if(!confirm(firstMsg)) return;
+
+  const secondMsg = `Dernière confirmation : voulez-vous vraiment supprimer définitivement « ${space.name} » ?\n\nIl n'y a pas de retour en arrière possible.`;
+  if(!confirm(secondMsg)) return;
+
+  showToast('Suppression en cours…');
+  const pageIds = (pages||[]).map(p=>p.id);
+  if(pageIds.length){
+    const { data: blocks } = await sb.from('blocks').select('id').in('page_id', pageIds);
+    const blockIds = (blocks||[]).map(b=>b.id);
+    if(blockIds.length){
+      await sb.from('comments').delete().in('block_id', blockIds);
+      await sb.from('page_prerequisites').delete().in('page_id', pageIds);
+      await sb.from('blocks').delete().in('page_id', pageIds);
+    }
+    await sb.from('pages').delete().eq('space_id', space.id);
+  }
+  await sb.from('spaces').delete().eq('id', space.id);
+
+  state.spaces = state.spaces.filter(s=>s.id!==space.id);
+  delete state.spacePrereqCoverage[space.id];
+
+  if(state.currentSpaceId === space.id){
+    state.currentSpaceId = null;
+    state.currentPageId = null;
+    state.pages = [];
+    state.blocks = [];
+    if(state.spaces.length){
+      await selectSpace(state.spaces[0].id);
+    }
+  }
+  render();
+  showToast('Espace supprimé');
+}
+
 /* ======================= DATA: PAGES ======================= */
 async function loadPages(spaceId){
   const { data, error } = await sb.from('pages').select('*').eq('space_id', spaceId).order('order_index',{ascending:true}).order('created_at',{ascending:true});
@@ -1114,6 +1169,11 @@ function renderApp(){
               <span class="cov-pill cov-4">4e ${cov['4']}%</span>
             </div>` : ''}
           </div>
+          <span class="smove">
+            <button class="icon-btn" data-move-space="${s.id}" data-dir="-1" title="Monter">▲</button>
+            <button class="icon-btn" data-move-space="${s.id}" data-dir="1" title="Descendre">▼</button>
+            <button class="icon-btn" data-delete-space="${s.id}" title="Supprimer">✕</button>
+          </span>
         </div>
       `;}).join('')}
       <button class="add-link" data-create-space="1">＋ Nouvel espace</button>
@@ -1550,13 +1610,21 @@ function attachAppEvents(){
   document.querySelectorAll('[data-select-space]').forEach(el=>{
     el.addEventListener('click', (e)=>{
       if(e.detail===2) return;
+      if(e.target.closest('[data-move-space],[data-delete-space]')) return;
       selectSpace(el.dataset.selectSpace);
       state.sidebarOpen=false;
     });
-    el.addEventListener('dblclick', ()=>{
+    el.addEventListener('dblclick', (e)=>{
+      if(e.target.closest('[data-move-space],[data-delete-space]')) return;
       const space = state.spaces.find(s=>s.id===el.dataset.renameSpace);
       if(space) renameSpace(space);
     });
+  });
+  document.querySelectorAll('[data-move-space]').forEach(el=>{
+    el.addEventListener('click', (e)=>{ e.stopPropagation(); const s=state.spaces.find(x=>x.id===el.dataset.moveSpace); if(s) moveSpace(s, parseInt(el.dataset.dir)); });
+  });
+  document.querySelectorAll('[data-delete-space]').forEach(el=>{
+    el.addEventListener('click', (e)=>{ e.stopPropagation(); const s=state.spaces.find(x=>x.id===el.dataset.deleteSpace); if(s) deleteSpace(s); });
   });
   document.querySelectorAll('[data-create-space]').forEach(el=> el.addEventListener('click', createSpace));
 
