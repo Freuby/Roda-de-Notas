@@ -67,11 +67,18 @@
   .sidebar-header{
     padding:20px 18px 14px;
     border-bottom:1px solid var(--border);
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
   }
   .sidebar-header .brand{
     font-size:21px; font-weight:600; letter-spacing:.2px;
-    display:flex; align-items:center; gap:10px;
+    display:flex; align-items:center; gap:10px; min-width:0; overflow:hidden;
   }
+  .sidebar-collapse-btn{
+    flex-shrink:0; width:26px; height:26px; border-radius:6px;
+    background:none; border:1px solid var(--border); color:var(--muted);
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
+  }
+  .sidebar-collapse-btn:hover{ background:var(--bg); color:var(--ink); }
   .roda-mark{
     width:30px; height:30px; border-radius:50%;
     border:2.5px dashed var(--terracotta);
@@ -85,6 +92,29 @@
   .sidebar-section{padding:14px 18px; overflow-y:auto;}
   .sidebar-section.spaces{border-bottom:1px solid var(--border); flex-shrink:0;}
   .sidebar-section.pages{flex:1;}
+
+  /* ---------- Collapsed sidebar mode ---------- */
+  .sidebar.collapsed{ width:64px !important; min-width:64px; }
+  .sidebar.collapsed .sidebar-header{ padding:16px 10px; justify-content:center; }
+  .sidebar.collapsed .brand-text,
+  .sidebar.collapsed .add-link-text,
+  .sidebar.collapsed .pages-section-title{ display:none; }
+  .sidebar.collapsed .sidebar-section{ padding:10px 8px; }
+  .sidebar.collapsed .space-row{ justify-content:center; padding:8px 4px; }
+  .sidebar.collapsed .space-name-block,
+  .sidebar.collapsed .smove,
+  .sidebar.collapsed .pmove,
+  .sidebar.collapsed .ptitle{ display:none; }
+  .sidebar.collapsed .page-row{ justify-content:center; padding:8px 4px; }
+  .sidebar.collapsed .page-row::before{
+    content:'📄'; font-size:14px;
+  }
+  .sidebar.collapsed .add-link{ justify-content:center; padding:8px; }
+  .sidebar.collapsed .archive-btn{ padding:5px 6px; font-size:12px; }
+  .sidebar.collapsed .section-label{ display:none; }
+  .sidebar.collapsed .sidebar-footer{ flex-direction:column; gap:8px; padding:12px 8px; }
+  .sidebar.collapsed .who{ display:none; }
+  .sidebar.collapsed .signout{ font-size:16px; padding:4px; }
 
   .section-label{
     font-size:11px; text-transform:uppercase; letter-spacing:1.5px;
@@ -523,4 +553,16 @@
     .app{flex-direction:column;}
     .main{height:100%;}
     .sidebar-resize-handle{display:none;}
+    .sidebar.collapsed{ width:280px !important; min-width:280px; }
+    .sidebar.collapsed .brand-text,
+    .sidebar.collapsed .add-link-text,
+    .sidebar.collapsed .pages-section-title,
+    .sidebar.collapsed .space-name-block,
+    .sidebar.collapsed .smove,
+    .sidebar.collapsed .pmove,
+    .sidebar.collapsed .ptitle,
+    .sidebar.collapsed .section-label,
+    .sidebar.collapsed .who{ display:revert; }
+    .sidebar.collapsed .page-row::before{ content:none; }
+    .sidebar.collapsed .sidebar-collapse-btn{ display:none; }
   }
