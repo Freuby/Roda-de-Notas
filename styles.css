@@ -263,6 +263,11 @@
     background:#1c1810; border:1px solid var(--border);
   }
   .video-frame iframe{position:absolute; top:0; left:0; width:100%; height:100%; border:0;}
+  .video-frame-embed-script{
+    position:static; padding-top:0; background:var(--bg); display:flex; justify-content:center;
+    padding:8px 0;
+  }
+  .video-frame-embed-script .instagram-media{ max-width:100% !important; min-width:280px !important; }
   .video-url-input{
     width:100%; font-size:13px; padding:8px 10px; border:1px solid var(--border);
     border-radius:8px; background:var(--surface); margin-bottom:6px; outline:none;
