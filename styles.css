@@ -101,6 +101,8 @@
     border:1.5px solid var(--ochre);
   }
   .space-row.active .space-dot{background:var(--terracotta); color:#fff; border-color:var(--terracotta);}
+  .smove{opacity:0; display:flex; gap:2px; flex-shrink:0;}
+  .space-row:hover .smove{opacity:1;}
   .space-name{font-size:14px; font-weight:500; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
   .space-name-block{flex:1; min-width:0; display:flex; flex-direction:column; gap:3px;}
   .space-coverage{display:flex; gap:4px; flex-wrap:wrap;}
