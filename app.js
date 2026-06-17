@@ -1088,6 +1088,7 @@ function render(){
   attachAppEvents();
   attachDragDrop();
   attachSidebarDragDrop();
+  attachSidebarResize();
 }
 
 /* ---- AUTH SCREEN ---- */
@@ -1212,6 +1213,7 @@ function renderApp(){
       <button class="signout" data-signout="1">Déconnexion</button>
     </div>
     ${state.notifPanelOpen ? renderNotifPanel() : ''}
+    <div class="sidebar-resize-handle" data-sidebar-resize="1"></div>
   </div>
   <div class="main">
     <div class="main-inner">
@@ -1900,7 +1902,73 @@ function openTypeMenu(e, parentId){
   render();
 }
 
+/* ======================= SIDEBAR RESIZE ======================= */
+const SIDEBAR_WIDTH_KEY = 'roda-sidebar-width';
+
+function loadSidebarWidth(){
+  const saved = localStorage.getItem(SIDEBAR_WIDTH_KEY);
+  if(saved){
+    const w = parseInt(saved);
+    if(w >= 200 && w <= 480){
+      document.documentElement.style.setProperty('--sidebar-width', w+'px');
+    }
+  }
+}
+
+function attachSidebarResize(){
+  const handle = document.querySelector('[data-sidebar-resize]');
+  const sidebarEl = document.querySelector('.sidebar');
+  if(!handle || !sidebarEl) return;
+
+  handle.addEventListener('mousedown', (e)=>{
+    e.preventDefault();
+    handle.classList.add('resizing');
+    document.body.classList.add('sidebar-resizing');
+    const startX = e.clientX;
+    const startWidth = sidebarEl.getBoundingClientRect().width;
+
+    function onMove(ev){
+      let newWidth = startWidth + (ev.clientX - startX);
+      newWidth = Math.max(200, Math.min(480, newWidth));
+      document.documentElement.style.setProperty('--sidebar-width', newWidth+'px');
+    }
+    function onUp(){
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      handle.classList.remove('resizing');
+      document.body.classList.remove('sidebar-resizing');
+      const finalWidth = Math.round(sidebarEl.getBoundingClientRect().width);
+      localStorage.setItem(SIDEBAR_WIDTH_KEY, String(finalWidth));
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+
+  // touch support
+  handle.addEventListener('touchstart', (e)=>{
+    const startX = e.touches[0].clientX;
+    const startWidth = sidebarEl.getBoundingClientRect().width;
+    handle.classList.add('resizing');
+
+    function onMove(ev){
+      let newWidth = startWidth + (ev.touches[0].clientX - startX);
+      newWidth = Math.max(200, Math.min(480, newWidth));
+      document.documentElement.style.setProperty('--sidebar-width', newWidth+'px');
+    }
+    function onEnd(){
+      document.removeEventListener('touchmove', onMove);
+      document.removeEventListener('touchend', onEnd);
+      handle.classList.remove('resizing');
+      const finalWidth = Math.round(sidebarEl.getBoundingClientRect().width);
+      localStorage.setItem(SIDEBAR_WIDTH_KEY, String(finalWidth));
+    }
+    document.addEventListener('touchmove', onMove, {passive:true});
+    document.addEventListener('touchend', onEnd);
+  }, {passive:true});
+}
+
 /* ======================= INIT ======================= */
+loadSidebarWidth();
 render();
 sb.auth.getSession().then(({data})=>{
   state.session = data.session;
