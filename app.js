@@ -33,6 +33,7 @@ const state = {
   drag: null,             // {blockId, parentId}
   moveBlockModal: null,   // {blockId} — which block to move to another page
   sidebarOpen: false,
+  sidebarCollapsed: false,
   notifications: [],      // [{id, user_id, block_id, page_id, page_title, content, created_at, seen}]
   allPrerequisites: null,    // cached list of all prerequisite reference items
   pagePrereqIds: new Set(),  // prerequisite_id set for the currently open page
@@ -1151,16 +1152,21 @@ function renderApp(){
     <div class="brand">🪘 Roda de Notas</div>
   </div>
   <div class="sidebar-backdrop ${state.sidebarOpen?'show':''}" data-close-sidebar></div>
-  <div class="sidebar ${state.sidebarOpen?'open':''}">
+  <div class="sidebar ${state.sidebarOpen?'open':''} ${state.sidebarCollapsed?'collapsed':''}">
     <div class="sidebar-header">
-      <div class="brand"><span class="roda-mark">🪘</span> Roda de Notas</div>
+      <div class="brand"><span class="roda-mark">🪘</span> <span class="brand-text">Roda de Notas</span></div>
+      <button class="sidebar-collapse-btn" data-toggle-sidebar-collapse="1" title="${state.sidebarCollapsed?'Agrandir la barre latérale':'Réduire la barre latérale'}">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" style="transform:${state.sidebarCollapsed?'rotate(180deg)':'none'}">
+          <path d="M9 2 L4 7 L9 12" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
     </div>
     <div class="sidebar-section spaces">
-      <p class="section-label">Espaces</p>
+      <p class="section-label">${state.sidebarCollapsed?'':'Espaces'}</p>
       ${state.spaces.map(s=>{
         const cov = state.spacePrereqCoverage[s.id];
         return `
-        <div class="space-row ${s.id===state.currentSpaceId?'active':''}" data-select-space="${s.id}" data-rename-space="${s.id}">
+        <div class="space-row ${s.id===state.currentSpaceId?'active':''}" data-select-space="${s.id}" data-rename-space="${s.id}" title="${esc(s.name)}">
           <div class="space-dot">${esc(initials(s.name))}</div>
           <div class="space-name-block">
             <div class="space-name">${esc(s.name)}</div>
@@ -1177,17 +1183,17 @@ function renderApp(){
           </span>
         </div>
       `;}).join('')}
-      <button class="add-link" data-create-space="1">＋ Nouvel espace</button>
-      <button class="add-link" data-import-archive="1" style="color:var(--muted);">⬆ Importer une archive</button>
+      <button class="add-link" data-create-space="1" title="Nouvel espace"><span class="add-link-icon">＋</span><span class="add-link-text">Nouvel espace</span></button>
+      <button class="add-link" data-import-archive="1" style="color:var(--muted);" title="Importer une archive"><span class="add-link-icon">⬆</span><span class="add-link-text">Importer une archive</span></button>
       <input type="file" id="archive-file-input" accept=".html" style="display:none;">
     </div>
     <div class="sidebar-section pages">
       <p class="section-label" style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
-        <span>${space ? esc(space.name) : 'Cours'}</span>
-        ${space ? `<button class="archive-btn" data-archive-space="${space.id}" title="Archiver cet espace en HTML">⬇ Archiver</button>` : ''}
+        <span class="pages-section-title">${state.sidebarCollapsed ? '' : (space ? esc(space.name) : 'Cours')}</span>
+        ${space ? `<button class="archive-btn" data-archive-space="${space.id}" title="Archiver cet espace en HTML">${state.sidebarCollapsed?'⬇':'⬇ Archiver'}</button>` : ''}
       </p>
       ${state.pages.map((p,i)=>`
-        <div class="page-row ${p.id===state.currentPageId?'active':''}" data-select-page="${p.id}" data-page-row="${p.id}" draggable="true">
+        <div class="page-row ${p.id===state.currentPageId?'active':''}" data-select-page="${p.id}" data-page-row="${p.id}" draggable="true" title="${esc(p.title||'Sans titre')}">
           <span class="ptitle">${esc(p.title || 'Sans titre')}</span>
           <span class="pmove">
             <button class="icon-btn lock-btn ${p.locked?'locked':''}" data-toggle-lock="${p.id}" title="${p.locked?'Déverrouiller':'Verrouiller'}">
@@ -1203,17 +1209,17 @@ function renderApp(){
           </span>
         </div>
       `).join('')}
-      ${state.currentSpaceId ? `<button class="add-link" data-create-page="1">＋ Nouveau cours</button>` : ''}
+      ${state.currentSpaceId ? `<button class="add-link" data-create-page="1" title="Nouveau cours"><span class="add-link-icon">＋</span><span class="add-link-text">Nouveau cours</span></button>` : ''}
     </div>
     <div class="sidebar-footer">
-      <span class="who">${esc(profileName(state.session.user.id))}</span>
+      <span class="who" title="${esc(profileName(state.session.user.id))}">${esc(profileName(state.session.user.id))}</span>
       <button class="notif-btn ${state.notifications.filter(n=>!n.seen).length ? 'has' : ''}" data-notif-panel="1" title="Commentaires récents">
         💬${state.notifications.filter(n=>!n.seen).length ? `<span class="notif-badge">${state.notifications.filter(n=>!n.seen).length}</span>` : ''}
       </button>
-      <button class="signout" data-signout="1">Déconnexion</button>
+      <button class="signout" data-signout="1" title="Déconnexion">${state.sidebarCollapsed ? '⏻' : 'Déconnexion'}</button>
     </div>
     ${state.notifPanelOpen ? renderNotifPanel() : ''}
-    <div class="sidebar-resize-handle" data-sidebar-resize="1"></div>
+    ${!state.sidebarCollapsed ? `<div class="sidebar-resize-handle" data-sidebar-resize="1"></div>` : ''}
   </div>
   <div class="main">
     <div class="main-inner">
@@ -1607,6 +1613,8 @@ function attachAppEvents(){
   if(ham) ham.addEventListener('click', ()=>{ state.sidebarOpen=!state.sidebarOpen; render(); });
   const backdrop = document.querySelector('[data-close-sidebar]');
   if(backdrop) backdrop.addEventListener('click', ()=>{ state.sidebarOpen=false; state.notifPanelOpen=false; render(); });
+  const collapseBtn = document.querySelector('[data-toggle-sidebar-collapse]');
+  if(collapseBtn) collapseBtn.addEventListener('click', toggleSidebarCollapse);
 
   // spaces
   document.querySelectorAll('[data-select-space]').forEach(el=>{
@@ -1902,8 +1910,10 @@ function openTypeMenu(e, parentId){
   render();
 }
 
-/* ======================= SIDEBAR RESIZE ======================= */
+/* ======================= SIDEBAR RESIZE & COLLAPSE ======================= */
 const SIDEBAR_WIDTH_KEY = 'roda-sidebar-width';
+const SIDEBAR_COLLAPSED_KEY = 'roda-sidebar-collapsed';
+let sidebarWidthBeforeCollapse = null;
 
 function loadSidebarWidth(){
   const saved = localStorage.getItem(SIDEBAR_WIDTH_KEY);
@@ -1913,6 +1923,13 @@ function loadSidebarWidth(){
       document.documentElement.style.setProperty('--sidebar-width', w+'px');
     }
   }
+  state.sidebarCollapsed = localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1';
+}
+
+function toggleSidebarCollapse(){
+  state.sidebarCollapsed = !state.sidebarCollapsed;
+  localStorage.setItem(SIDEBAR_COLLAPSED_KEY, state.sidebarCollapsed ? '1' : '0');
+  render();
 }
 
 function attachSidebarResize(){
