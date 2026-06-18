@@ -459,16 +459,26 @@ async function togglePagePrerequisite(prereqId){
   const has = state.pagePrereqIds.has(prereqId);
   if(has){
     state.pagePrereqIds.delete(prereqId);
-    render();
+    renderPreservingPrereqScroll();
     const { error } = await sb.from('page_prerequisites').delete().eq('page_id', pageId).eq('prerequisite_id', prereqId);
-    if(error){ showToast('Erreur de sauvegarde'); state.pagePrereqIds.add(prereqId); render(); }
+    if(error){ showToast('Erreur de sauvegarde'); state.pagePrereqIds.add(prereqId); renderPreservingPrereqScroll(); }
   } else {
     state.pagePrereqIds.add(prereqId);
-    render();
+    renderPreservingPrereqScroll();
     const { error } = await sb.from('page_prerequisites').insert({ page_id: pageId, prerequisite_id: prereqId });
-    if(error){ showToast('Erreur de sauvegarde'); state.pagePrereqIds.delete(prereqId); render(); }
+    if(error){ showToast('Erreur de sauvegarde'); state.pagePrereqIds.delete(prereqId); renderPreservingPrereqScroll(); }
   }
   computeSpaceCoverage(state.currentSpaceId);
+}
+
+function renderPreservingPrereqScroll(){
+  const panel = document.querySelector('.prereq-panel-body');
+  const scrollTop = panel ? panel.scrollTop : null;
+  render();
+  if(scrollTop !== null){
+    const newPanel = document.querySelector('.prereq-panel-body');
+    if(newPanel) newPanel.scrollTop = scrollTop;
+  }
 }
 
 async function computeSpaceCoverage(spaceId){
