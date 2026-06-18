@@ -2000,6 +2000,7 @@ function attachSidebarResize(){
   handle.addEventListener('mousedown', (e)=>{
     e.preventDefault();
     handle.classList.add('resizing');
+    sidebarEl.classList.add('resizing-active');
     document.body.classList.add('sidebar-resizing');
     const startX = e.clientX;
     const startWidth = sidebarEl.getBoundingClientRect().width;
@@ -2013,6 +2014,7 @@ function attachSidebarResize(){
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
       handle.classList.remove('resizing');
+      sidebarEl.classList.remove('resizing-active');
       document.body.classList.remove('sidebar-resizing');
       const finalWidth = Math.round(sidebarEl.getBoundingClientRect().width);
       localStorage.setItem(SIDEBAR_WIDTH_KEY, String(finalWidth));
@@ -2026,6 +2028,7 @@ function attachSidebarResize(){
     const startX = e.touches[0].clientX;
     const startWidth = sidebarEl.getBoundingClientRect().width;
     handle.classList.add('resizing');
+    sidebarEl.classList.add('resizing-active');
 
     function onMove(ev){
       let newWidth = startWidth + (ev.touches[0].clientX - startX);
@@ -2036,6 +2039,7 @@ function attachSidebarResize(){
       document.removeEventListener('touchmove', onMove);
       document.removeEventListener('touchend', onEnd);
       handle.classList.remove('resizing');
+      sidebarEl.classList.remove('resizing-active');
       const finalWidth = Math.round(sidebarEl.getBoundingClientRect().width);
       localStorage.setItem(SIDEBAR_WIDTH_KEY, String(finalWidth));
     }
