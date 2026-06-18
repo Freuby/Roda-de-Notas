@@ -472,12 +472,20 @@ async function togglePagePrerequisite(prereqId){
 }
 
 function renderPreservingPrereqScroll(){
+  const mainEl = document.querySelector('.main');
+  const mainScrollTop = mainEl ? mainEl.scrollTop : null;
   const panel = document.querySelector('.prereq-panel-body');
-  const scrollTop = panel ? panel.scrollTop : null;
+  const panelScrollTop = panel ? panel.scrollTop : null;
+
   render();
-  if(scrollTop !== null){
+
+  if(mainScrollTop !== null){
+    const newMain = document.querySelector('.main');
+    if(newMain) newMain.scrollTop = mainScrollTop;
+  }
+  if(panelScrollTop !== null){
     const newPanel = document.querySelector('.prereq-panel-body');
-    if(newPanel) newPanel.scrollTop = scrollTop;
+    if(newPanel) newPanel.scrollTop = panelScrollTop;
   }
 }
 
