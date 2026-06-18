@@ -508,7 +508,7 @@ async function computeSpaceCoverage(spaceId){
     byCorde[corde] = total ? Math.round((covered/total)*100) : 0;
   });
   state.spacePrereqCoverage[spaceId] = byCorde;
-  render();
+  renderPreservingPrereqScroll();
 }
 
 async function computeAllSpacesCoverage(){
