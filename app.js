@@ -811,24 +811,49 @@ function siblingBlocks(parentId){
   return state.blocks.filter(b=> (b.parent_block_id||null) === (parentId||null)).sort((a,b)=>a.order_index-b.order_index);
 }
 
-async function addBlock(type, parentId){
+async function addBlock(type, parentId, afterBlockId){
   const siblings = siblingBlocks(parentId);
-  const maxOrder = siblings.reduce((m,b)=>Math.max(m,b.order_index||0), -1);
   let content = {};
   if(type==='video') content = {url:'', caption:''};
   if(type==='song') content = {};
   if(type==='callout') content = {text:'', emoji:'💡'};
   if(['heading','subheading','paragraph','bullet','numbered','toggle'].includes(type)) content = {text:''};
 
+  let newOrderIndex;
+  let shiftUpdates = [];
+
+  if(afterBlockId){
+    const afterIdx = siblings.findIndex(b=>b.id===afterBlockId);
+    if(afterIdx === -1){
+      const maxOrder = siblings.reduce((m,b)=>Math.max(m,b.order_index||0), -1);
+      newOrderIndex = maxOrder+1;
+    } else {
+      newOrderIndex = afterIdx+1;
+      // shift everything after the insertion point up by 1
+      const toShift = siblings.slice(afterIdx+1);
+      toShift.forEach(b=>{ b.order_index += 1; });
+      shiftUpdates = toShift.map(b=>({id:b.id, order_index:b.order_index}));
+    }
+  } else {
+    const maxOrder = siblings.reduce((m,b)=>Math.max(m,b.order_index||0), -1);
+    newOrderIndex = maxOrder+1;
+  }
+
   const row = {
     page_id: state.currentPageId,
     type, content,
     parent_block_id: parentId || null,
-    order_index: maxOrder+1,
+    order_index: newOrderIndex,
     created_by: state.session.user.id
   };
   const { data, error } = await sb.from('blocks').insert(row).select().single();
   if(error){ showToast('Impossible d’ajouter ce bloc'); return; }
+
+  // persist shifted siblings (fire and forget, state already updated locally)
+  for(const u of shiftUpdates){
+    sb.from('blocks').update({order_index:u.order_index}).eq('id',u.id);
+  }
+
   state.blocks.push(data);
   if(type==='toggle') state.openToggles.add(data.id);
   if(type==='song'){ state.songPickerForBlock = data.id; state.songPickerQuery=''; ensureSongsLoaded().then(render); }
@@ -1866,7 +1891,7 @@ function attachAppEvents(){
       if(e.key==='Enter' && !e.shiftKey && ['heading','subheading','paragraph','bullet','numbered','callout','toggle'].includes(block.type)){
         e.preventDefault();
         el.blur();
-        addBlock(block.type==='toggle'?'paragraph':block.type, block.parent_block_id);
+        addBlock(block.type==='toggle'?'paragraph':block.type, block.parent_block_id, block.id);
       }
     });
   });
