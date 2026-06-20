@@ -368,7 +368,9 @@ async function loadSpaces(){
   if(error){ showToast('Erreur de chargement des espaces'); return; }
   state.spaces = data || [];
   if(!state.currentSpaceId && state.spaces.length){
-    state.currentSpaceId = state.spaces[0].id;
+    const lastLoc = loadLastOpenedLocation();
+    const validLastSpace = lastLoc && state.spaces.some(s=>s.id===lastLoc.spaceId);
+    state.currentSpaceId = validLastSpace ? lastLoc.spaceId : state.spaces[0].id;
   }
   if(state.currentSpaceId){
     await loadPages(state.currentSpaceId);
@@ -469,7 +471,9 @@ async function loadPages(spaceId){
   if(error){ showToast('Erreur de chargement des cours'); return; }
   state.pages = data || [];
   if(state.pages.length && !state.currentPageId){
-    await selectPage(state.pages[0].id, true);
+    const lastLoc = loadLastOpenedLocation();
+    const validLastPage = lastLoc && lastLoc.spaceId === spaceId && state.pages.some(p=>p.id===lastLoc.pageId);
+    await selectPage(validLastPage ? lastLoc.pageId : state.pages[0].id, true);
   }
 }
 
@@ -491,9 +495,30 @@ async function selectPage(id, skipRender){
   state.comments = {};
   state.pagePrereqIds = new Set();
   state.prereqPanelOpen = false;
+  saveLastOpenedLocation();
   if(!skipRender) render();
   await Promise.all([loadBlocks(id), loadPagePrerequisites(id), ensurePrerequisitesLoaded()]);
   render();
+}
+
+const LAST_LOCATION_KEY = 'roda-last-location';
+
+function saveLastOpenedLocation(){
+  if(!state.currentSpaceId || !state.currentPageId) return;
+  try{
+    localStorage.setItem(LAST_LOCATION_KEY, JSON.stringify({
+      spaceId: state.currentSpaceId,
+      pageId: state.currentPageId
+    }));
+  }catch(e){ /* localStorage unavailable, ignore */ }
+}
+
+function loadLastOpenedLocation(){
+  try{
+    const raw = localStorage.getItem(LAST_LOCATION_KEY);
+    if(!raw) return null;
+    return JSON.parse(raw);
+  }catch(e){ return null; }
 }
 
 /* ======================= GLOBAL SEARCH ======================= */
