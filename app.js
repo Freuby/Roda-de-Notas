@@ -34,6 +34,10 @@ const state = {
   moveBlockModal: null,   // {blockId} — which block to move to another page
   sidebarOpen: false,
   sidebarCollapsed: false,
+  searchOpen: false,
+  searchQuery: '',
+  searchResults: null,   // null = not yet searched, [] = no results, [...] = results
+  searchBusy: false,
   notifications: [],      // [{id, user_id, block_id, page_id, page_title, content, created_at, seen}]
   allPrerequisites: null,    // cached list of all prerequisite reference items
   pagePrereqIds: new Set(),  // prerequisite_id set for the currently open page
@@ -235,6 +239,58 @@ async function goToNotification(notif){
   }
   render();
 }
+
+function renderSearchModal(){
+  return `<div class="search-overlay" data-close-search="1">
+    <div class="search-modal" onclick="event.stopPropagation()">
+      <div class="search-input-row">
+        <svg width="16" height="16" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" stroke-width="1.6"/><path d="M10 10 L13.5 13.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        <input id="global-search-input" class="search-input" placeholder="Rechercher un cours, un mouvement, un chant…" value="${esc(state.searchQuery)}" autocomplete="off">
+        <button class="icon-btn" data-close-search="1" title="Fermer">✕</button>
+      </div>
+      <div class="search-results-area">
+        ${renderSearchResultsHtml()}
+      </div>
+    </div>
+  </div>`;
+}
+
+const SEARCH_TYPE_ICONS = {
+  heading:'H1', subheading:'H2', toggle:'▸', paragraph:'¶', bullet:'•', numbered:'1.',
+  callout:'!', video:'▶', song:'♪', divider:'—'
+};
+
+function renderSearchResultsHtml(){
+  if(state.searchBusy){
+    return `<div class="search-empty">Recherche en cours…</div>`;
+  }
+  if(state.searchResults === null){
+    return `<div class="search-empty">Tapez pour rechercher dans tous vos cours, espaces et chants.</div>`;
+  }
+  if(state.searchResults.length === 0){
+    return `<div class="search-empty">Aucun résultat pour « ${esc(state.searchQuery)} ».</div>`;
+  }
+  return state.searchResults.map((r,i)=>`
+    <button class="search-result-item" data-search-result="${i}">
+      <span class="search-result-icon">${r.kind==='page' ? '📄' : (SEARCH_TYPE_ICONS[r.blockType]||'•')}</span>
+      <span class="search-result-text">
+        <span class="search-result-title">${esc(r.pageTitle)}</span>
+        <span class="search-result-meta">${esc(r.spaceName)}</span>
+        ${r.snippet ? `<span class="search-result-snippet">${esc(r.snippet)}</span>` : ''}
+      </span>
+    </button>
+  `).join('');
+}
+
+function attachSearchResultEvents(){
+  document.querySelectorAll('[data-search-result]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const r = state.searchResults[parseInt(el.dataset.searchResult)];
+      if(r) goToSearchResult(r);
+    });
+  });
+}
+
 
 function renderNotifPanel(){
   const notifs = state.notifications;
@@ -439,6 +495,153 @@ async function selectPage(id, skipRender){
   await Promise.all([loadBlocks(id), loadPagePrerequisites(id), ensurePrerequisitesLoaded()]);
   render();
 }
+
+/* ======================= GLOBAL SEARCH ======================= */
+function blockTextForSearch(block){
+  const c = block.content || {};
+  const parts = [];
+  if(c.text) parts.push(c.text);
+  if(c.caption) parts.push(c.caption);
+  if(c.title) parts.push(c.title);       // song title
+  if(c.lyrics) parts.push(c.lyrics);     // song lyrics
+  if(c.mnemonic) parts.push(c.mnemonic); // song mnemonic
+  if(c.url) parts.push(c.url);           // video url (rarely useful but harmless)
+  return parts.join(' \n ');
+}
+
+function openSearch(){
+  state.searchOpen = true;
+  state.searchQuery = '';
+  state.searchResults = null;
+  render();
+  setTimeout(()=>{
+    const input = document.getElementById('global-search-input');
+    if(input) input.focus();
+  }, 30);
+}
+
+function closeSearch(){
+  state.searchOpen = false;
+  render();
+}
+
+let searchDebounceTimer = null;
+function onSearchInput(value){
+  state.searchQuery = value;
+  clearTimeout(searchDebounceTimer);
+  if(!value.trim()){
+    state.searchResults = null;
+    renderSearchResultsOnly();
+    return;
+  }
+  searchDebounceTimer = setTimeout(()=> runGlobalSearch(value), 250);
+}
+
+async function runGlobalSearch(query){
+  state.searchBusy = true;
+  renderSearchResultsOnly();
+
+  const q = normalize(query);
+
+  // Fetch all pages (with space info) and all blocks across spaces the user can see.
+  const [{ data: allPages, error: pagesErr }, { data: allBlocks, error: blocksErr }] = await Promise.all([
+    sb.from('pages').select('id, title, space_id'),
+    sb.from('blocks').select('id, page_id, type, content')
+  ]);
+
+  state.searchBusy = false;
+
+  if(pagesErr || blocksErr){
+    state.searchResults = [];
+    renderSearchResultsOnly();
+    return;
+  }
+
+  const spaceById = {};
+  state.spaces.forEach(s=> spaceById[s.id] = s);
+  const pageById = {};
+  (allPages||[]).forEach(p=> pageById[p.id] = p);
+
+  const results = [];
+
+  // 1. page title matches
+  (allPages||[]).forEach(p=>{
+    if(normalize(p.title).includes(q)){
+      results.push({
+        kind: 'page',
+        pageId: p.id,
+        pageTitle: p.title || 'Sans titre',
+        spaceId: p.space_id,
+        spaceName: (spaceById[p.space_id]||{}).name || '',
+        snippet: null,
+        blockId: null,
+      });
+    }
+  });
+
+  // 2. block content matches
+  (allBlocks||[]).forEach(b=>{
+    const text = blockTextForSearch(b);
+    if(!text) return;
+    const normText = normalize(text);
+    if(normText.includes(q)){
+      const page = pageById[b.page_id];
+      if(!page) return;
+      // build a short snippet around the match
+      const idx = normText.indexOf(q);
+      const start = Math.max(0, idx-40);
+      const end = Math.min(text.length, idx+q.length+60);
+      let snippet = text.substring(start, end).replace(/\n/g,' ').trim();
+      if(start>0) snippet = '…'+snippet;
+      if(end<text.length) snippet = snippet+'…';
+      results.push({
+        kind: 'block',
+        pageId: page.id,
+        pageTitle: page.title || 'Sans titre',
+        spaceId: page.space_id,
+        spaceName: (spaceById[page.space_id]||{}).name || '',
+        snippet,
+        blockId: b.id,
+        blockType: b.type,
+      });
+    }
+  });
+
+  // de-dup: if a page already matched by title, keep block matches too (more specific), just sort page matches first
+  results.sort((a,b)=>{
+    if(a.kind==='page' && b.kind!=='page') return -1;
+    if(a.kind!=='page' && b.kind==='page') return 1;
+    return 0;
+  });
+
+  state.searchResults = results.slice(0, 60);
+  renderSearchResultsOnly();
+}
+
+function renderSearchResultsOnly(){
+  const container = document.querySelector('.search-results-area');
+  if(!container) { render(); return; }
+  container.innerHTML = renderSearchResultsHtml();
+  attachSearchResultEvents();
+}
+
+async function goToSearchResult(result){
+  closeSearch();
+  await selectSpace(result.spaceId);
+  await selectPage(result.pageId);
+  if(result.blockId){
+    // briefly highlight the matching block
+    setTimeout(()=>{
+      const el = document.querySelector(`[data-block-id="${result.blockId}"]`);
+      if(el){
+        el.scrollIntoView({behavior:'smooth', block:'center'});
+        el.classList.add('search-highlight');
+        setTimeout(()=> el.classList.remove('search-highlight'), 2200);
+      }
+    }, 150);
+  }
+}
+
 
 async function ensurePrerequisitesLoaded(){
   if(state.allPrerequisites) return;
@@ -1250,6 +1453,12 @@ function renderApp(){
         </svg>
       </button>
     </div>
+    <div class="sidebar-section search-trigger-section">
+      <button class="search-trigger-btn" data-open-search="1" title="Rechercher (Ctrl/Cmd+K)">
+        <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" stroke-width="1.6"/><path d="M10 10 L13.5 13.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        <span class="search-trigger-text">Rechercher…</span>
+      </button>
+    </div>
     <div class="sidebar-section spaces">
       <p class="section-label">${state.sidebarCollapsed?'':'Espaces'}</p>
       ${state.spaces.map(s=>{
@@ -1317,6 +1526,7 @@ function renderApp(){
   </div>
   ${state.typeMenu ? renderTypeMenu() : ''}
   ${state.moveBlockModal ? renderMoveBlockModal() : ''}
+  ${state.searchOpen ? renderSearchModal() : ''}
   </div>
   `;
 }
@@ -1680,6 +1890,28 @@ function renderSongPicker(){
 
 /* ======================= EVENTS ======================= */
 function attachAppEvents(){
+  // global search trigger / close / input
+  document.querySelectorAll('[data-open-search]').forEach(el=>{
+    el.addEventListener('click', openSearch);
+  });
+  if(state.searchOpen){
+    document.querySelectorAll('[data-close-search]').forEach(el=>{
+      el.addEventListener('click', (e)=>{
+        if(e.target === e.currentTarget || e.target.closest('[data-close-search]') === e.target){
+          closeSearch();
+        }
+      });
+    });
+    const searchInput = document.getElementById('global-search-input');
+    if(searchInput){
+      searchInput.addEventListener('input', (e)=> onSearchInput(e.target.value));
+      searchInput.addEventListener('keydown', (e)=>{
+        if(e.key === 'Escape'){ e.preventDefault(); closeSearch(); }
+      });
+    }
+    attachSearchResultEvents();
+  }
+
   // prerequisites panel toggle and chips
   document.querySelectorAll('[data-toggle-prereq-panel]').forEach(el=>{
     el.addEventListener('click', ()=>{ state.prereqPanelOpen = !state.prereqPanelOpen; render(); });
@@ -2099,4 +2331,13 @@ sb.auth.getSession().then(({data})=>{
   state.loadingAuth = false;
   if(data.session) bootstrapAfterLogin();
   else render();
+});
+
+document.addEventListener('keydown', (e)=>{
+  if((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k'){
+    e.preventDefault();
+    if(state.session && !state.searchOpen) openSearch();
+  } else if(e.key === 'Escape' && state.searchOpen){
+    closeSearch();
+  }
 });
