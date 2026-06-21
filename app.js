@@ -43,6 +43,7 @@ const state = {
   pagePrereqIds: new Set(),  // prerequisite_id set for the currently open page
   spacePrereqCoverage: {},   // spaceId -> {2: pct, 3: pct, 4: pct}
   prereqPanelOpen: false,    // whether the selector panel is shown on the page
+  prereqSearchQuery: '',     // live filter text inside the prerequisites panel
   notifPanelOpen: false,
   notifTimer: null,
 };
@@ -1688,19 +1689,27 @@ function renderPrerequisitesSection(locked){
     monde:'Le monde de la capoeira', musicalite:'Musicalité', bases:'Bases',
     deplacements:'Déplacements', desequilibrants:'Déséquilibrants', chamadas:'Chamadas', maculele:'Maculêlê'
   };
-  const items = state.allPrerequisites || [];
+  const query = normalize(state.prereqSearchQuery||'');
+  const items = (state.allPrerequisites || []).filter(p=> !query || normalize(p.label).includes(query));
   const byCorde = {'2':[], '3':[], '4':[]};
   items.forEach(p=> byCorde[p.corde] && byCorde[p.corde].push(p));
+  const noResults = query && items.length === 0;
 
   return `<div class="prereq-panel">
     <div class="prereq-panel-head">
       <span>Sélectionner les pré-requis travaillés</span>
       <button class="icon-btn" data-toggle-prereq-panel="1" title="Fermer">✕</button>
     </div>
+    <div class="prereq-search-row">
+      <svg width="14" height="14" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" stroke-width="1.6"/><path d="M10 10 L13.5 13.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      <input type="text" id="prereq-search-input" class="prereq-search-input" placeholder="Rechercher un mouvement, une compétence…" value="${esc(state.prereqSearchQuery||'')}" autocomplete="off">
+      ${state.prereqSearchQuery ? `<button class="icon-btn" data-clear-prereq-search="1" title="Effacer">✕</button>` : ''}
+    </div>
     <div class="prereq-panel-body">
-      ${['2','3','4'].map(corde=>{
+      ${noResults ? `<p class="prereq-no-results">Aucun résultat pour « ${esc(state.prereqSearchQuery)} »</p>` : ['2','3','4'].map(corde=>{
         const byCat = {};
         byCorde[corde].forEach(p=>{ if(!byCat[p.category]) byCat[p.category]=[]; byCat[p.category].push(p); });
+        if(!Object.keys(byCat).length) return '';
         return `<div class="prereq-corde-block corde-${corde}">
           <h4>${cordeLabels[corde]}</h4>
           ${Object.keys(byCat).map(cat=>`
@@ -1993,10 +2002,31 @@ function attachAppEvents(){
 
   // prerequisites panel toggle and chips
   document.querySelectorAll('[data-toggle-prereq-panel]').forEach(el=>{
-    el.addEventListener('click', ()=>{ state.prereqPanelOpen = !state.prereqPanelOpen; render(); });
+    el.addEventListener('click', ()=>{
+      state.prereqPanelOpen = !state.prereqPanelOpen;
+      if(!state.prereqPanelOpen) state.prereqSearchQuery = '';
+      render();
+    });
   });
   document.querySelectorAll('[data-toggle-prereq]').forEach(el=>{
     el.addEventListener('click', ()=> togglePagePrerequisite(el.dataset.togglePrereq));
+  });
+  const prereqSearchInput = document.getElementById('prereq-search-input');
+  if(prereqSearchInput){
+    prereqSearchInput.addEventListener('input', (e)=>{
+      state.prereqSearchQuery = e.target.value;
+      renderPreservingPrereqScroll();
+      setTimeout(()=>{
+        const refocused = document.getElementById('prereq-search-input');
+        if(refocused){ refocused.focus(); refocused.selectionStart = refocused.selectionEnd = refocused.value.length; }
+      }, 0);
+    });
+    prereqSearchInput.addEventListener('keydown', (e)=>{
+      if(e.key === 'Escape'){ e.preventDefault(); state.prereqSearchQuery=''; render(); }
+    });
+  }
+  document.querySelectorAll('[data-clear-prereq-search]').forEach(el=>{
+    el.addEventListener('click', ()=>{ state.prereqSearchQuery=''; render(); });
   });
 
   // song picker overlay (separate from main render to allow live search)
