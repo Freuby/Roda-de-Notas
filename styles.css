@@ -484,6 +484,7 @@
   .search-trigger-text{ flex:1; text-align:left; }
   .sidebar.collapsed .search-trigger-btn{ justify-content:center; padding:8px; }
   .sidebar.collapsed .search-trigger-section{ padding:10px 8px 4px; }
+  .sidebar.collapsed .search-trigger-text{ display:none; }
 
   .search-overlay{
     position:fixed; inset:0; z-index:60; background:rgba(26,60,47,.35);
@@ -642,6 +643,7 @@
     .sidebar.collapsed .pmove,
     .sidebar.collapsed .ptitle,
     .sidebar.collapsed .section-label,
+    .sidebar.collapsed .search-trigger-text,
     .sidebar.collapsed .who{ display:revert; }
     .sidebar.collapsed .page-row::before{ content:none; }
     .sidebar.collapsed .sidebar-collapse-btn{ display:none; }
