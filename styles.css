@@ -388,6 +388,17 @@
     padding:12px 16px; border-bottom:1px solid var(--border); font-size:14px; font-weight:600;
   }
   .prereq-panel-body{ padding:14px 16px; max-height:480px; overflow-y:auto; }
+  .prereq-search-row{
+    display:flex; align-items:center; gap:9px;
+    padding:10px 16px; border-bottom:1px solid var(--border); color:var(--muted);
+  }
+  .prereq-search-input{
+    flex:1; border:none; outline:none; font-size:13.5px; background:none; color:var(--ink);
+  }
+  .prereq-search-row .icon-btn{ font-size:12px; color:var(--muted); flex-shrink:0; }
+  .prereq-no-results{
+    padding:24px 10px; text-align:center; color:var(--muted); font-size:13px; font-style:italic;
+  }
   .prereq-corde-block{ margin-bottom:18px; }
   .prereq-corde-block:last-child{ margin-bottom:0; }
   .prereq-corde-block h4{
