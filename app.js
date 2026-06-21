@@ -1488,9 +1488,14 @@ function renderApp(){
       <p class="section-label">${state.sidebarCollapsed?'':'Espaces'}</p>
       ${state.spaces.map(s=>{
         const cov = state.spacePrereqCoverage[s.id];
+        const col = SPACE_DOT_COLORS[spaceColorIndex(s.id)];
+        const isActive = s.id===state.currentSpaceId;
+        const dotStyle = isActive
+          ? `background:${col.border}; color:#fff; border-color:${col.border};`
+          : `background:${col.bg}; color:${col.fg}; border-color:${col.border};`;
         return `
-        <div class="space-row ${s.id===state.currentSpaceId?'active':''}" data-select-space="${s.id}" data-rename-space="${s.id}" title="${esc(s.name)}">
-          <div class="space-dot">${esc(initials(s.name))}</div>
+        <div class="space-row ${isActive?'active':''}" data-select-space="${s.id}" data-rename-space="${s.id}" title="${esc(s.name)}">
+          <div class="space-dot" style="${dotStyle}">${esc(initials(s.name))}</div>
           <div class="space-name-block">
             <div class="space-name">${esc(s.name)}</div>
             ${cov ? `<div class="space-coverage">
@@ -1557,8 +1562,33 @@ function renderApp(){
 }
 
 function initials(name){
-  return (name||'').trim().split(/\\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase() || '?';
+  const clean = (name||'').trim();
+  if(!clean) return '?';
+  // split on spaces, dashes, slashes to catch patterns like "Cours 2025-2026"
+  const words = clean.split(/[\s\-\/]+/).filter(Boolean);
+  if(words.length >= 2){
+    // take first letter of first word + first letter/digit of second word
+    return (words[0][0] + words[1][0]).toUpperCase();
+  }
+  // single word: take first two characters (letters or digits)
+  return clean.slice(0,2).toUpperCase();
 }
+
+function spaceColorIndex(spaceId){
+  // stable hash of the space id -> index 0..SPACE_COLORS.length-1
+  let hash = 0;
+  for(let i=0;i<spaceId.length;i++){ hash = (hash*31 + spaceId.charCodeAt(i)) >>> 0; }
+  return hash % SPACE_DOT_COLORS.length;
+}
+
+const SPACE_DOT_COLORS = [
+  { bg:'#FFE3CC', fg:'#FF6B00', border:'#FF6B00' }, // terracotta
+  { bg:'#DCEFE6', fg:'#1A3C2F', border:'#2E6B52' }, // vert capoeira
+  { bg:'#FFF3D6', fg:'#8a6a1f', border:'#FFB300' }, // jaune doré
+  { bg:'#dce8f5', fg:'#2c5d8a', border:'#5b8fc4' }, // bleu
+  { bg:'#f3dcec', fg:'#9c2f7a', border:'#c45ba3' }, // prune
+  { bg:'#e2e8d8', fg:'#52681f', border:'#82a23f' }, // olive
+];
 
 function renderEmptyState(){
   if(!state.spaces.length){
