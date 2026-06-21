@@ -1495,7 +1495,7 @@ function renderApp(){
           : `background:${col.bg}; color:${col.fg}; border-color:${col.border};`;
         return `
         <div class="space-row ${isActive?'active':''}" data-select-space="${s.id}" data-rename-space="${s.id}" title="${esc(s.name)}">
-          <div class="space-dot" style="${dotStyle}">${esc(initials(s.name))}</div>
+          <div class="space-dot" style="${dotStyle}">${spaceSymbol(s.id)}</div>
           <div class="space-name-block">
             <div class="space-name">${esc(s.name)}</div>
             ${cov ? `<div class="space-coverage">
@@ -1561,21 +1561,38 @@ function renderApp(){
   `;
 }
 
-function initials(name){
-  const clean = (name||'').trim();
-  if(!clean) return '?';
-  // split on spaces, dashes, slashes to catch patterns like "Cours 2025-2026"
-  const words = clean.split(/[\s\-\/]+/).filter(Boolean);
-  if(words.length >= 2){
-    // take first letter of first word + first letter/digit of second word
-    return (words[0][0] + words[1][0]).toUpperCase();
-  }
-  // single word: take first two characters (letters or digits)
-  return clean.slice(0,2).toUpperCase();
+function spaceSymbol(spaceId){
+  return SPACE_SYMBOLS[spaceSymbolIndex(spaceId)];
 }
 
+function spaceSymbolIndex(spaceId){
+  let hash = 0;
+  for(let i=0;i<spaceId.length;i++){ hash = (hash*37 + spaceId.charCodeAt(i)) >>> 0; }
+  return hash % SPACE_SYMBOLS.length;
+}
+
+// Small line-icon SVGs evoking capoeira (berimbau, atabaque, ginga, etc.)
+// Each draws in currentColor at 16x16 viewBox, used inline inside .space-dot
+const SPACE_SYMBOLS = [
+  // berimbau (bow + gourd)
+  `<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 13.5C5 8 8 2.5 13.5 2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="2.6" cy="13" r="1.8" stroke="currentColor" stroke-width="1.3"/><path d="M4.2 11.6L12.8 3" stroke="currentColor" stroke-width=".7" stroke-linecap="round"/></svg>`,
+  // atabaque (drum)
+  `<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 2.5h6l-1.2 11H6.2L5 2.5Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M5 2.5C5 3.3 6.3 4 8 4s3-.7 3-1.5" stroke="currentColor" stroke-width="1.3"/><path d="M6 6.2h4M6.3 8.6h3.4M6.6 11h2.8" stroke="currentColor" stroke-width=".9" stroke-linecap="round"/></svg>`,
+  // ginga (figure mid-step)
+  `<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="3" r="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M8 4.6v4.2M8 8.8 5 13M8 8.8l3.3 2.4M8 6.6 4.8 8.4M8 6.6l3.4 1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  // estrela / star (roda spirit)
+  `<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 1.5l1.8 4.2 4.5.4-3.4 3 1 4.4L8 11.2l-3.9 2.3 1-4.4-3.4-3 4.5-.4L8 1.5Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>`,
+  // folha / leaf (organic, roots)
+  `<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 13C3 7 7 2.5 13.5 2.5 13.5 9 9 13 3 13Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M3.5 12.5C6.5 9.5 9 7 12.5 3.2" stroke="currentColor" stroke-width="1" stroke-linecap="round"/></svg>`,
+  // lua / moon (rodas at night)
+  `<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10.8 2.2a6 6 0 1 0 3 9.4 5 5 0 0 1-3-9.4Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>`,
+  // au (cartwheel / rotation arrows)
+  `<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="5.3" stroke="currentColor" stroke-width="1.3" stroke-dasharray="2.2 2.4"/><path d="M11.6 4.5l1.6-.4-.1 1.7" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  // pandeiro (tambourine)
+  `<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="5.6" stroke="currentColor" stroke-width="1.3"/><circle cx="8" cy="8" r="2.6" stroke="currentColor" stroke-width=".9"/><circle cx="3.3" cy="6" r=".7" fill="currentColor"/><circle cx="12.7" cy="6" r=".7" fill="currentColor"/><circle cx="3.3" cy="10" r=".7" fill="currentColor"/><circle cx="12.7" cy="10" r=".7" fill="currentColor"/></svg>`,
+];
+
 function spaceColorIndex(spaceId){
-  // stable hash of the space id -> index 0..SPACE_COLORS.length-1
   let hash = 0;
   for(let i=0;i<spaceId.length;i++){ hash = (hash*31 + spaceId.charCodeAt(i)) >>> 0; }
   return hash % SPACE_DOT_COLORS.length;
