@@ -1486,16 +1486,18 @@ function renderApp(){
     </div>
     <div class="sidebar-section spaces">
       <p class="section-label">${state.sidebarCollapsed?'':'Espaces'}</p>
-      ${state.spaces.map(s=>{
-        const cov = state.spacePrereqCoverage[s.id];
-        const col = SPACE_DOT_COLORS[spaceColorIndex(s.id)];
-        const isActive = s.id===state.currentSpaceId;
-        const dotStyle = isActive
-          ? `background:${col.border}; color:#fff; border-color:${col.border};`
-          : `background:${col.bg}; color:${col.fg}; border-color:${col.border};`;
-        return `
+      ${(()=>{
+        const assignments = assignSpaceVisuals(state.spaces);
+        return state.spaces.map(s=>{
+          const cov = state.spacePrereqCoverage[s.id];
+          const { symbol, color: col } = assignments[s.id];
+          const isActive = s.id===state.currentSpaceId;
+          const dotStyle = isActive
+            ? `background:${col.border}; color:#fff; border-color:${col.border};`
+            : `background:${col.bg}; color:${col.fg}; border-color:${col.border};`;
+          return `
         <div class="space-row ${isActive?'active':''}" data-select-space="${s.id}" data-rename-space="${s.id}" title="${esc(s.name)}">
-          <div class="space-dot" style="${dotStyle}">${spaceSymbol(s.id)}</div>
+          <div class="space-dot" style="${dotStyle}">${symbol}</div>
           <div class="space-name-block">
             <div class="space-name">${esc(s.name)}</div>
             ${cov ? `<div class="space-coverage">
@@ -1510,7 +1512,8 @@ function renderApp(){
             <button class="icon-btn" data-delete-space="${s.id}" title="Supprimer">✕</button>
           </span>
         </div>
-      `;}).join('')}
+      `;}).join('');
+      })()}
       <button class="add-link" data-create-space="1" title="Nouvel espace"><span class="add-link-icon">＋</span><span class="add-link-text">Nouvel espace</span></button>
       <button class="add-link" data-import-archive="1" style="color:var(--muted);" title="Importer une archive"><span class="add-link-icon">⬆</span><span class="add-link-text">Importer une archive</span></button>
       <input type="file" id="archive-file-input" accept=".html" style="display:none;">
@@ -1561,14 +1564,18 @@ function renderApp(){
   `;
 }
 
-function spaceSymbol(spaceId){
-  return SPACE_SYMBOLS[spaceSymbolIndex(spaceId)];
-}
-
-function spaceSymbolIndex(spaceId){
-  let hash = 0;
-  for(let i=0;i<spaceId.length;i++){ hash = (hash*37 + spaceId.charCodeAt(i)) >>> 0; }
-  return hash % SPACE_SYMBOLS.length;
+// Assigns a unique symbol + color pair to each space, with no repeats as long as
+// there are enough symbols/colors available. Falls back to cycling once the pool
+// is exhausted (e.g. more than 8 spaces). Stable as long as space order doesn't change.
+function assignSpaceVisuals(spaces){
+  const result = {};
+  spaces.forEach((s, i)=>{
+    result[s.id] = {
+      symbol: SPACE_SYMBOLS[i % SPACE_SYMBOLS.length],
+      color: SPACE_DOT_COLORS[i % SPACE_DOT_COLORS.length]
+    };
+  });
+  return result;
 }
 
 // Small line-icon SVGs evoking capoeira (berimbau, atabaque, ginga, etc.)
@@ -1590,13 +1597,11 @@ const SPACE_SYMBOLS = [
   `<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="5.3" stroke="currentColor" stroke-width="1.3" stroke-dasharray="2.2 2.4"/><path d="M11.6 4.5l1.6-.4-.1 1.7" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
   // pandeiro (tambourine)
   `<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="5.6" stroke="currentColor" stroke-width="1.3"/><circle cx="8" cy="8" r="2.6" stroke="currentColor" stroke-width=".9"/><circle cx="3.3" cy="6" r=".7" fill="currentColor"/><circle cx="12.7" cy="6" r=".7" fill="currentColor"/><circle cx="3.3" cy="10" r=".7" fill="currentColor"/><circle cx="12.7" cy="10" r=".7" fill="currentColor"/></svg>`,
+  // roots / raiz (capoeira angola, grounded)
+  `<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 2v6.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M8 8.5C6 9 4.5 10.3 3.2 13M8 8.5c2 .5 3.5 1.8 4.8 4.5M8 8.5C6.6 10 5.7 11.8 5.4 14M8 8.5c1.4 1.5 2.3 3.3 2.6 5.5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/></svg>`,
+  // chama / flame (fogo, energy)
+  `<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 14c-2.8 0-4.6-1.8-4.6-4.2 0-2 1.2-3 1.9-4.7.5 1 1.3 1.4 1.9 1 .2-2 1-3.6 2.6-4.6-.4 1.8.2 2.9 1.3 4 1.2 1.2 2.1 2.4 2.1 4.3 0 2.4-1.8 4.2-4.6 4.2 .8-.8 1.2-1.7 1.1-2.8-.1-1-.7-1.7-1.4-2.3-.1 1-.5 1.6-1.2 1.9-1 .4-1.5 1.4-1.1 2.4.2.5.6.8 1 .9" stroke="currentColor" stroke-width="1" stroke-linejoin="round" stroke-linecap="round"/></svg>`,
 ];
-
-function spaceColorIndex(spaceId){
-  let hash = 0;
-  for(let i=0;i<spaceId.length;i++){ hash = (hash*31 + spaceId.charCodeAt(i)) >>> 0; }
-  return hash % SPACE_DOT_COLORS.length;
-}
 
 const SPACE_DOT_COLORS = [
   { bg:'#FFE3CC', fg:'#FF6B00', border:'#FF6B00' }, // terracotta
@@ -1605,6 +1610,8 @@ const SPACE_DOT_COLORS = [
   { bg:'#dce8f5', fg:'#2c5d8a', border:'#5b8fc4' }, // bleu
   { bg:'#f3dcec', fg:'#9c2f7a', border:'#c45ba3' }, // prune
   { bg:'#e2e8d8', fg:'#52681f', border:'#82a23f' }, // olive
+  { bg:'#fde2e2', fg:'#b3401f', border:'#e0654a' }, // brique
+  { bg:'#e6e1f5', fg:'#4f3c8a', border:'#7e68c4' }, // violet
 ];
 
 function renderEmptyState(){
