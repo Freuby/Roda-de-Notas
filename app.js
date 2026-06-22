@@ -44,6 +44,7 @@ const state = {
   spacePrereqCoverage: {},   // spaceId -> {2: pct, 3: pct, 4: pct}
   prereqPanelOpen: false,    // whether the selector panel is shown on the page
   prereqSearchQuery: '',     // live filter text inside the prerequisites panel
+  emojiPickerForBlock: null, // block id currently showing the emoji picker, or null
   notifPanelOpen: false,
   notifTimer: null,
 };
@@ -1561,6 +1562,7 @@ function renderApp(){
   ${state.typeMenu ? renderTypeMenu() : ''}
   ${state.moveBlockModal ? renderMoveBlockModal() : ''}
   ${state.searchOpen ? renderSearchModal() : ''}
+  ${state.emojiPickerForBlock ? renderEmojiPicker() : ''}
   </div>
   `;
 }
@@ -1739,6 +1741,7 @@ function renderBlock(block, depth, locked){
   const controls = locked ? '' : `
     <div class="block-controls">
       ${renderCommentToggle(block)}
+      <button class="icon-btn" data-emoji-picker-toggle="${block.id}" title="Insérer un émoji">🙂</button>
       <button class="icon-btn" data-change-type="${block.id}" title="Changer le type de bloc">⇄</button>
       <button class="icon-btn" data-duplicate-block="${block.id}" title="Dupliquer ce bloc">⧉</button>
       <button class="icon-btn" data-move-block-to="${block.id}" title="Déplacer vers un autre cours">↗</button>
@@ -2091,6 +2094,23 @@ function attachAppEvents(){
     });
   });
   document.querySelectorAll('[data-create-page]').forEach(el=> el.addEventListener('click', createPage));
+  // emoji picker
+  document.querySelectorAll('[data-emoji-picker-toggle]').forEach(el=>{
+    el.addEventListener('click', (e)=>{ e.stopPropagation(); toggleEmojiPicker(e, el.dataset.emojiPickerToggle); });
+  });
+  if(state.emojiPickerForBlock){
+    const overlay = document.querySelector('[data-close-emoji-picker]');
+    if(overlay) overlay.addEventListener('click', (e)=>{
+      if(e.target.dataset.closeEmojiPicker !== undefined){ state.emojiPickerForBlock=null; render(); }
+    });
+    document.querySelectorAll('[data-emoji-cat]').forEach(el=>{
+      el.addEventListener('click', (e)=>{ e.stopPropagation(); emojiActiveCategory=parseInt(el.dataset.emojiCat); render(); });
+    });
+    document.querySelectorAll('[data-pick-emoji]').forEach(el=>{
+      el.addEventListener('click', (e)=>{ e.stopPropagation(); insertEmojiIntoBlock(state.emojiPickerForBlock, el.dataset.pickEmoji); });
+    });
+  }
+
   document.querySelectorAll('[data-change-type]').forEach(el=>{
     el.addEventListener('click', (e)=> openChangeTypeMenu(e, el.dataset.changeType));
   });
@@ -2352,6 +2372,86 @@ function openTypeMenu(e, parentId){
   if(y + menuH > window.innerHeight - 12) y = rect.top - menuH - 6;
   state.typeMenu = { parentId, x: Math.max(8,x), y: Math.max(8,y) };
   render();
+}
+
+/* ======================= EMOJI PICKER ======================= */
+const EMOJI_CATEGORIES = [
+  { label:'⚡ Capoeira', emojis: ['🥋','🤸','🤼','💃','🕺','🦵','🦶','🤾','🧘','🏃','🤸‍♂️','🤸‍♀️','🔄','⭕','🌀','🎯','🏹','⚔️','🛡️','🌊'] },
+  { label:'🎵 Musique', emojis: ['🎵','🎶','🥁','🪘','🎤','🎸','🎺','🎻','🪗','🎼','🔊','🎙️','🎧','🎹','🪕','🎷'] },
+  { label:'💪 Corps', emojis: ['💪','🦴','🦵','🖐️','✋','👊','🤜','🤛','👏','🙌','🤝','👋','👆','👇','👉','🫀','🧠','👁️','🦷','🦶'] },
+  { label:'🔖 Annotations', emojis: ['✅','❌','⚠️','💡','📝','🎯','⭐','🔥','🏆','📌','🔑','💬','❓','❗','➡️','🔁','⏱️','📅','🔗','🔐'] },
+  { label:'😀 Expressions', emojis: ['😀','😄','😅','😉','😊','😎','🤔','😬','😮','😴','🤩','😤','😅','🥵','🤯','💯','🙃','😇','🥳','🫡'] },
+  { label:'🌿 Nature', emojis: ['🌿','🌱','🌺','🌸','🍃','🌴','☀️','🌙','⭐','🌟','💫','✨','🔆','🌊','🔥','💧','🌍','🌈','🌄','🦋'] },
+];
+
+let emojiActiveCategory = 0;
+
+function toggleEmojiPicker(e, blockId){
+  if(state.emojiPickerForBlock === blockId){
+    state.emojiPickerForBlock = null;
+    render();
+    return;
+  }
+  const rect = e.target.getBoundingClientRect();
+  let x = rect.left, y = rect.bottom + 6;
+  const pickerW = 280, pickerH = 260;
+  if(x + pickerW > window.innerWidth - 12) x = window.innerWidth - pickerW - 12;
+  if(y + pickerH > window.innerHeight - 12) y = rect.top - pickerH - 6;
+  state.emojiPickerForBlock = blockId;
+  state.emojiPickerPos = { x: Math.max(8,x), y: Math.max(8,y) };
+  render();
+}
+
+function renderEmojiPicker(){
+  const { x, y } = state.emojiPickerPos || { x:0, y:0 };
+  const cat = EMOJI_CATEGORIES[emojiActiveCategory] || EMOJI_CATEGORIES[0];
+  return `<div class="menu-overlay" data-close-emoji-picker="1">
+    <div class="emoji-picker" style="left:${x}px; top:${y}px;" onclick="event.stopPropagation()">
+      <div class="emoji-picker-cats">
+        ${EMOJI_CATEGORIES.map((c,i)=>`<button class="emoji-cat-btn${i===emojiActiveCategory?' active':''}" data-emoji-cat="${i}" title="${c.label.split(' ').slice(1).join(' ')}">${c.label.split(' ')[0]}</button>`).join('')}
+      </div>
+      <div class="emoji-picker-grid">
+        ${cat.emojis.map(em=>`<button class="emoji-picker-item" data-pick-emoji="${em}">${em}</button>`).join('')}
+      </div>
+    </div>
+  </div>`;
+}
+
+function insertEmojiIntoBlock(blockId, emoji){
+  const block = state.blocks.find(b=>b.id===blockId);
+  state.emojiPickerForBlock = null;
+  if(!block) return;
+
+  const selector = `[data-block-id="${blockId}"] .block-content[contenteditable="true"]`;
+  const el = document.querySelector(selector);
+
+  if(el){
+    el.focus();
+    const sel = window.getSelection();
+    let inserted = false;
+    if(sel && sel.rangeCount && el.contains(sel.anchorNode)){
+      const range = sel.getRangeAt(0);
+      range.deleteContents();
+      const node = document.createTextNode(emoji);
+      range.insertNode(node);
+      range.setStartAfter(node);
+      range.setEndAfter(node);
+      sel.removeAllRanges();
+      sel.addRange(range);
+      inserted = true;
+    }
+    if(!inserted){
+      el.textContent = (el.textContent||'') + emoji;
+    }
+    const field = el.dataset.field || 'text';
+    updateBlockContent(block, { [field]: el.textContent });
+  } else {
+    // fallback for blocks without a contenteditable target in view (e.g. caption inputs)
+    const c = block.content || {};
+    const newText = (c.text||'') + emoji;
+    updateBlockContent(block, { text: newText });
+    render();
+  }
 }
 
 /* ======================= SIDEBAR RESIZE & COLLAPSE ======================= */
