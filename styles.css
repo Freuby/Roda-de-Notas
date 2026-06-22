@@ -456,7 +456,12 @@
   .comment-author{font-weight:600; color:var(--green); margin-right:6px;}
   .comment-date{font-size:11px; color:var(--muted);}
   .comment-text{margin-top:2px; line-height:1.5;}
-  .comment-form{display:flex; gap:6px; margin-top:8px;}
+  .comment-form{display:flex; gap:6px; margin-top:8px; align-items:center;}
+  .comment-emoji-btn{
+    flex-shrink:0; background:none; border:1px solid var(--border); border-radius:8px;
+    padding:5px 8px; font-size:15px; cursor:pointer; transition:.12s;
+  }
+  .comment-emoji-btn:hover{ background:var(--terracotta-soft); border-color:var(--terracotta); }
   .comment-input{
     flex:1; border:1px solid var(--border); border-radius:8px; padding:7px 10px; font-size:13px; outline:none;
     background:var(--surface);
