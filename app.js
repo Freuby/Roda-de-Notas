@@ -1524,8 +1524,10 @@ function renderApp(){
             </div>` : ''}
           </div>
           <span class="smove">
-            <button class="icon-btn" data-move-space="${s.id}" data-dir="-1" title="Monter">▲</button>
-            <button class="icon-btn" data-move-space="${s.id}" data-dir="1" title="Descendre">▼</button>
+            <span class="smove-arrows">
+              <button class="icon-btn" data-move-space="${s.id}" data-dir="-1" title="Monter">▲</button>
+              <button class="icon-btn" data-move-space="${s.id}" data-dir="1" title="Descendre">▼</button>
+            </span>
             <button class="icon-btn" data-delete-space="${s.id}" title="Supprimer">✕</button>
           </span>
         </div>
