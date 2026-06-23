@@ -157,8 +157,9 @@
     border:1.5px solid transparent;
   }
   .space-dot svg{ width:15px; height:15px; }
-  .smove{opacity:0; display:flex; flex-direction:column; flex-shrink:0; gap:0;}
-  .smove .icon-btn{ font-size:9px; padding:1px 3px; line-height:1; }
+  .smove{opacity:0; display:flex; align-items:center; gap:2px; flex-shrink:0;}
+  .smove-arrows{display:flex; flex-direction:column; gap:0;}
+  .smove-arrows .icon-btn{ font-size:9px; padding:1px 3px; line-height:1; }
   .space-row:hover .smove{opacity:1;}
   .space-name{font-size:14px; font-weight:500; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
   .space-name-block{flex:1; min-width:0; display:flex; flex-direction:column; gap:3px;}
