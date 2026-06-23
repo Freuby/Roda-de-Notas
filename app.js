@@ -1238,6 +1238,9 @@ async function addComment(blockId, text){
 async function deleteComment(blockId, comment){
   await sb.from('comments').delete().eq('id', comment.id);
   state.comments[blockId] = (state.comments[blockId]||[]).filter(c=>c.id!==comment.id);
+  if(state.comments[blockId].length === 0){
+    state.openComments.delete(blockId);
+  }
   render();
 }
 
