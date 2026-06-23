@@ -1107,7 +1107,15 @@ async function updateBlockContent(block, patch, opts){
 
 async function saveBlockNow(block){
   clearTimeout(block._t);
-  const { error } = await sb.from('blocks').update({content: block.content, updated_at: new Date().toISOString()}).eq('id', block.id);
+  const now = new Date().toISOString();
+  const userId = state.session?.user?.id;
+  block.updated_at = now;
+  block.updated_by = userId;
+  const { error } = await sb.from('blocks').update({
+    content: block.content,
+    updated_at: now,
+    updated_by: userId
+  }).eq('id', block.id);
   if(error){ console.error('save block error', error); showToast('Erreur de sauvegarde: ' + error.message); }
 }
 
@@ -1170,7 +1178,11 @@ async function changeBlockType(block, newType){
   state.typeMenu = null;
   if(newType === 'song'){ state.songPickerForBlock = block.id; state.songPickerQuery = ''; ensureSongsLoaded().then(render); }
   render();
-  const { error } = await sb.from('blocks').update({ type: newType, content: newContent }).eq('id', block.id);
+  const { error } = await sb.from('blocks').update({
+    type: newType, content: newContent,
+    updated_at: new Date().toISOString(),
+    updated_by: state.session?.user?.id
+  }).eq('id', block.id);
   if(error){ showToast('Erreur lors du changement de type'); }
 }
 
@@ -1738,9 +1750,11 @@ function renderBlock(block, depth, locked){
   const idx = siblings.findIndex(b=>b.id===block.id);
   const canUp = idx>0, canDown = idx<siblings.length-1;
   const dragHandle = locked ? '' : `<button class="drag-handle" data-drag-handle="${block.id}" title="Glisser pour déplacer" draggable="false">⠿</button>`;
-  const controls = locked ? '' : `
+  const blockInfoTip = renderBlockInfoTip(block);
+  const controls = locked ? `<div class="block-controls">${blockInfoTip}</div>` : `
     <div class="block-controls">
       ${renderCommentToggle(block)}
+      ${blockInfoTip}
       <button class="icon-btn" data-emoji-picker-toggle="${block.id}" title="Insérer un émoji">🙂</button>
       <button class="icon-btn" data-change-type="${block.id}" title="Changer le type de bloc">⇄</button>
       <button class="icon-btn" data-duplicate-block="${block.id}" title="Dupliquer ce bloc">⧉</button>
@@ -1880,6 +1894,28 @@ function renderSongBlock(block, c, locked){
 }
 
 /* ---- COMMENTS ---- */
+function renderBlockInfoTip(block){
+  const createdBy = profileName(block.created_by);
+  const updatedBy = block.updated_by ? profileName(block.updated_by) : null;
+  const createdAt = block.created_at ? fmtDate(block.created_at) : null;
+  const updatedAt = block.updated_at ? fmtDate(block.updated_at) : null;
+
+  let lines = [];
+  if(createdBy) lines.push(`✏️ Créé par <strong>${esc(createdBy)}</strong>`);
+  if(createdAt) lines.push(`📅 Le ${esc(createdAt)}`);
+  if(updatedBy && (updatedBy !== createdBy || updatedAt !== createdAt)){
+    lines.push(`🔄 Modifié par <strong>${esc(updatedBy)}</strong>`);
+    if(updatedAt) lines.push(`📅 Le ${esc(updatedAt)}`);
+  }
+  if(!lines.length) return '';
+
+  return `<span class="block-info-tip">
+    <span class="block-info-icon">ⓘ</span>
+    <span class="block-info-popup">${lines.join('<br>')}</span>
+  </span>`;
+}
+
+
 function renderCommentToggle(block){
   const comments = state.comments[block.id]||[];
   return `<button class="comment-toggle ${comments.length?'has':''}" data-comment-toggle="${block.id}" title="Commentaires">💬${comments.length ? ' '+comments.length : ''}</button>`;
