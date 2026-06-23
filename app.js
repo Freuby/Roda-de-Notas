@@ -2095,32 +2095,17 @@ function attachAppEvents(){
     });
   });
   document.querySelectorAll('[data-create-page]').forEach(el=> el.addEventListener('click', createPage));
-  // emoji picker — save cursor position on mousedown (before blur fires)
+  // emoji picker — save cursor on mousedown then open on click
   document.querySelectorAll('[data-emoji-picker-toggle]').forEach(el=>{
     el.addEventListener('mousedown', (e)=>{ e.preventDefault(); saveEmojiCursorPosition(); });
     el.addEventListener('touchstart', ()=> saveEmojiCursorPosition(), {passive:true});
     el.addEventListener('click', (e)=>{ e.stopPropagation(); toggleEmojiPicker(e, el.dataset.emojiPickerToggle); });
   });
-  // emoji picker — comment buttons
   document.querySelectorAll('[data-comment-emoji-toggle]').forEach(el=>{
     el.addEventListener('mousedown', (e)=>{ e.preventDefault(); saveEmojiCursorPosition(); });
     el.addEventListener('touchstart', ()=> saveEmojiCursorPosition(), {passive:true});
     el.addEventListener('click', (e)=>{ e.stopPropagation(); toggleCommentEmojiPicker(e, el.dataset.commentEmojiToggle); });
   });
-  if(state.emojiPickerForBlock){
-    const overlay = document.querySelector('[data-close-emoji-picker]');
-    if(overlay) overlay.addEventListener('click', (e)=>{
-      if(e.target.dataset.closeEmojiPicker !== undefined){ state.emojiPickerForBlock=null; render(); }
-    });
-    document.querySelectorAll('[data-emoji-cat]').forEach(el=>{
-      el.addEventListener('mousedown', (e)=> e.preventDefault());
-      el.addEventListener('click', (e)=>{ e.stopPropagation(); emojiActiveCategory=parseInt(el.dataset.emojiCat); render(); });
-    });
-    document.querySelectorAll('[data-pick-emoji]').forEach(el=>{
-      el.addEventListener('mousedown', (e)=> e.preventDefault());
-      el.addEventListener('click', (e)=>{ e.stopPropagation(); insertEmojiIntoBlock(state.emojiPickerForBlock, el.dataset.pickEmoji); });
-    });
-  }
 
   document.querySelectorAll('[data-change-type]').forEach(el=>{
     el.addEventListener('click', (e)=> openChangeTypeMenu(e, el.dataset.changeType));
@@ -2396,18 +2381,17 @@ const EMOJI_CATEGORIES = [
 ];
 
 let emojiActiveCategory = 0;
-let savedEmojiRange = null;   // Range saved before picker opens
-let savedEmojiTarget = null;  // The contenteditable element the cursor was in
+let savedEmojiRange = null;
+let savedEmojiTarget = null;
+let emojiCurrentBlockId = null;
 
 function saveEmojiCursorPosition(){
-  // Handle standard inputs (comment field)
   const active = document.activeElement;
-  if(active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA') && active.type !== 'button'){
+  if(active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')){
     savedEmojiTarget = active;
     savedEmojiRange = { start: active.selectionStart, end: active.selectionEnd };
     return;
   }
-  // Handle contenteditable blocks
   const sel = window.getSelection();
   if(sel && sel.rangeCount > 0){
     savedEmojiRange = sel.getRangeAt(0).cloneRange();
@@ -2421,70 +2405,103 @@ function saveEmojiCursorPosition(){
   }
 }
 
-function toggleEmojiPicker(e, blockId){
-  e.preventDefault();
-  if(state.emojiPickerForBlock === blockId){
-    state.emojiPickerForBlock = null;
-    render();
-    return;
-  }
-  const rect = e.target.getBoundingClientRect();
+function mountEmojiPicker(anchorEl, blockId){
+  unmountEmojiPicker();
+  emojiCurrentBlockId = blockId;
+
+  const rect = anchorEl.getBoundingClientRect();
   let x = rect.left, y = rect.bottom + 6;
   const pickerW = 280, pickerH = 260;
   if(x + pickerW > window.innerWidth - 12) x = window.innerWidth - pickerW - 12;
   if(y + pickerH > window.innerHeight - 12) y = rect.top - pickerH - 6;
-  state.emojiPickerForBlock = blockId;
-  state.emojiPickerPos = { x: Math.max(8,x), y: Math.max(8,y) };
-  render();
+  x = Math.max(8, x); y = Math.max(8, y);
+
+  const overlay = document.createElement('div');
+  overlay.className = 'menu-overlay';
+  overlay.id = 'emoji-overlay';
+  overlay.innerHTML = buildEmojiPickerHTML(x, y);
+  document.body.appendChild(overlay);
+
+  // close on overlay background click
+  overlay.addEventListener('mousedown', (e)=>{
+    if(e.target === overlay){ e.preventDefault(); unmountEmojiPicker(); }
+  });
+
+  // category tabs
+  overlay.querySelectorAll('[data-emoji-cat]').forEach(btn=>{
+    btn.addEventListener('mousedown', (e)=>{ e.preventDefault(); });
+    btn.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      emojiActiveCategory = parseInt(btn.dataset.emojiCat);
+      overlay.querySelector('.emoji-picker-grid').innerHTML =
+        EMOJI_CATEGORIES[emojiActiveCategory].emojis
+          .map(em=>`<button class="emoji-picker-item" data-pick-emoji="${em}">${em}</button>`).join('');
+      overlay.querySelectorAll('.emoji-cat-btn').forEach((b,i)=> b.classList.toggle('active', i===emojiActiveCategory));
+      attachEmojiItemListeners(overlay);
+    });
+  });
+
+  attachEmojiItemListeners(overlay);
 }
 
-function toggleCommentEmojiPicker(e, blockId){
-  e.preventDefault();
-  const rect = e.target.getBoundingClientRect();
-  let x = rect.left, y = rect.bottom + 6;
-  const pickerW = 280, pickerH = 260;
-  if(x + pickerW > window.innerWidth - 12) x = window.innerWidth - pickerW - 12;
-  if(y + pickerH > window.innerHeight - 12) y = rect.top - pickerH - 6;
-  state.emojiPickerForBlock = blockId || '__comment__';
-  state.emojiPickerPos = { x: Math.max(8,x), y: Math.max(8,y) };
-  render();
+function attachEmojiItemListeners(overlay){
+  overlay.querySelectorAll('[data-pick-emoji]').forEach(btn=>{
+    btn.addEventListener('mousedown', (e)=> e.preventDefault());
+    btn.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      doInsertEmoji(btn.dataset.pickEmoji);
+    });
+  });
 }
 
-function renderEmojiPicker(){
-  const { x, y } = state.emojiPickerPos || { x:0, y:0 };
-  const cat = EMOJI_CATEGORIES[emojiActiveCategory] || EMOJI_CATEGORIES[0];
-  return `<div class="menu-overlay" data-close-emoji-picker="1">
-    <div class="emoji-picker" style="left:${x}px; top:${y}px;" onclick="event.stopPropagation()">
-      <div class="emoji-picker-cats">
-        ${EMOJI_CATEGORIES.map((c,i)=>`<button class="emoji-cat-btn${i===emojiActiveCategory?' active':''}" data-emoji-cat="${i}" title="${c.label.split(' ').slice(1).join(' ')}">${c.label.split(' ')[0]}</button>`).join('')}
-      </div>
-      <div class="emoji-picker-grid">
-        ${cat.emojis.map(em=>`<button class="emoji-picker-item" data-pick-emoji="${em}">${em}</button>`).join('')}
-      </div>
+function buildEmojiPickerHTML(x, y){
+  const cat = EMOJI_CATEGORIES[emojiActiveCategory];
+  return `<div class="emoji-picker" style="left:${x}px;top:${y}px;" onclick="event.stopPropagation()">
+    <div class="emoji-picker-cats">
+      ${EMOJI_CATEGORIES.map((c,i)=>`<button class="emoji-cat-btn${i===emojiActiveCategory?' active':''}" data-emoji-cat="${i}" title="${c.label.split(' ').slice(1).join(' ')}">${c.label.split(' ')[0]}</button>`).join('')}
+    </div>
+    <div class="emoji-picker-grid">
+      ${cat.emojis.map(em=>`<button class="emoji-picker-item" data-pick-emoji="${em}">${em}</button>`).join('')}
     </div>
   </div>`;
 }
 
-function insertEmojiAtSavedPosition(emoji){
+function unmountEmojiPicker(){
+  const el = document.getElementById('emoji-overlay');
+  if(el) el.remove();
+  emojiCurrentBlockId = null;
+}
+
+function toggleEmojiPicker(e, blockId){
+  e.preventDefault();
+  if(emojiCurrentBlockId === blockId){ unmountEmojiPicker(); return; }
+  mountEmojiPicker(e.currentTarget, blockId);
+}
+
+function toggleCommentEmojiPicker(e, blockId){
+  e.preventDefault();
+  mountEmojiPicker(e.currentTarget, blockId || '__comment__');
+}
+
+function doInsertEmoji(emoji){
+  const blockId = emojiCurrentBlockId; // capture before unmount clears it
+  unmountEmojiPicker();
   const target = savedEmojiTarget;
   const range = savedEmojiRange;
-  state.emojiPickerForBlock = null;
 
-  // Standard input (comment field)
+  // Standard input / textarea (comment field)
   if(target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') && document.contains(target)){
     const start = range ? range.start : target.value.length;
-    const end = range ? range.end : target.value.length;
-    const before = target.value.slice(0, start);
-    const after = target.value.slice(end);
-    target.value = before + emoji + after;
-    target.selectionStart = target.selectionEnd = start + [...emoji].length;
+    const end   = range ? range.end   : target.value.length;
+    target.value = target.value.slice(0, start) + emoji + target.value.slice(end);
+    const cur = start + [...emoji].length;
+    target.selectionStart = target.selectionEnd = cur;
     target.focus();
     target.dispatchEvent(new Event('input', { bubbles:true }));
-    render();
     return;
   }
 
-  // Contenteditable (block text)
+  // Contenteditable — target is still live (no render() happened)
   if(target && range && document.contains(target)){
     target.focus();
     const sel = window.getSelection();
@@ -2498,45 +2515,22 @@ function insertEmojiAtSavedPosition(emoji){
     sel.removeAllRanges();
     sel.addRange(range);
     target.dispatchEvent(new InputEvent('input', { bubbles:true }));
-    render();
-  } else {
-    render();
-  }
-}
-
-function insertEmojiIntoBlock(blockId, emoji){
-  if(blockId === '__comment__'){
-    insertEmojiAtSavedPosition(emoji);
     return;
   }
-  const block = state.blocks.find(b=>b.id===blockId);
-  state.emojiPickerForBlock = null;
-  if(!block){ render(); return; }
 
-  if(savedEmojiTarget && savedEmojiRange && document.contains(savedEmojiTarget)){
-    // cursor was inside this block's contenteditable — restore and insert
-    savedEmojiTarget.focus();
-    const sel = window.getSelection();
-    sel.removeAllRanges();
-    sel.addRange(savedEmojiRange);
-    savedEmojiRange.deleteContents();
-    const node = document.createTextNode(emoji);
-    savedEmojiRange.insertNode(node);
-    savedEmojiRange.setStartAfter(node);
-    savedEmojiRange.setEndAfter(node);
-    sel.removeAllRanges();
-    sel.addRange(savedEmojiRange);
-    savedEmojiTarget.dispatchEvent(new InputEvent('input', { bubbles:true }));
-    updateBlockContent(block, { [savedEmojiTarget.dataset.field||'text']: savedEmojiTarget.textContent });
-    render();
-  } else {
-    // No saved position — append at end of text content
-    const c = block.content || {};
-    const newText = (c.text||'') + emoji;
+  // Fallback — no live target, append to state
+  const block = blockId ? state.blocks.find(b=>b.id===blockId) : null;
+  if(block){
+    const newText = (block.content?.text||'') + emoji;
     updateBlockContent(block, { text: newText });
     render();
   }
 }
+
+// keep for compat — no longer used by render() but kept for safety
+function renderEmojiPicker(){ return ''; }
+function insertEmojiIntoBlock(blockId, emoji){ doInsertEmoji(emoji); }
+function insertEmojiAtSavedPosition(emoji){ doInsertEmoji(emoji); }
 
 /* ======================= SIDEBAR RESIZE & COLLAPSE ======================= */
 const SIDEBAR_WIDTH_KEY = 'roda-sidebar-width';
