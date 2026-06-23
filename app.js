@@ -2095,12 +2095,16 @@ function attachAppEvents(){
     });
   });
   document.querySelectorAll('[data-create-page]').forEach(el=> el.addEventListener('click', createPage));
-  // emoji picker — block buttons
+  // emoji picker — save cursor position on mousedown (before blur fires)
   document.querySelectorAll('[data-emoji-picker-toggle]').forEach(el=>{
+    el.addEventListener('mousedown', (e)=>{ e.preventDefault(); saveEmojiCursorPosition(); });
+    el.addEventListener('touchstart', ()=> saveEmojiCursorPosition(), {passive:true});
     el.addEventListener('click', (e)=>{ e.stopPropagation(); toggleEmojiPicker(e, el.dataset.emojiPickerToggle); });
   });
   // emoji picker — comment buttons
   document.querySelectorAll('[data-comment-emoji-toggle]').forEach(el=>{
+    el.addEventListener('mousedown', (e)=>{ e.preventDefault(); saveEmojiCursorPosition(); });
+    el.addEventListener('touchstart', ()=> saveEmojiCursorPosition(), {passive:true});
     el.addEventListener('click', (e)=>{ e.stopPropagation(); toggleCommentEmojiPicker(e, el.dataset.commentEmojiToggle); });
   });
   if(state.emojiPickerForBlock){
@@ -2109,9 +2113,11 @@ function attachAppEvents(){
       if(e.target.dataset.closeEmojiPicker !== undefined){ state.emojiPickerForBlock=null; render(); }
     });
     document.querySelectorAll('[data-emoji-cat]').forEach(el=>{
+      el.addEventListener('mousedown', (e)=> e.preventDefault());
       el.addEventListener('click', (e)=>{ e.stopPropagation(); emojiActiveCategory=parseInt(el.dataset.emojiCat); render(); });
     });
     document.querySelectorAll('[data-pick-emoji]').forEach(el=>{
+      el.addEventListener('mousedown', (e)=> e.preventDefault());
       el.addEventListener('click', (e)=>{ e.stopPropagation(); insertEmojiIntoBlock(state.emojiPickerForBlock, el.dataset.pickEmoji); });
     });
   }
@@ -2422,7 +2428,6 @@ function toggleEmojiPicker(e, blockId){
     render();
     return;
   }
-  saveEmojiCursorPosition();
   const rect = e.target.getBoundingClientRect();
   let x = rect.left, y = rect.bottom + 6;
   const pickerW = 280, pickerH = 260;
@@ -2433,10 +2438,8 @@ function toggleEmojiPicker(e, blockId){
   render();
 }
 
-// Also used for comment emoji picker (blockId = null means comment mode)
 function toggleCommentEmojiPicker(e, blockId){
   e.preventDefault();
-  saveEmojiCursorPosition();
   const rect = e.target.getBoundingClientRect();
   let x = rect.left, y = rect.bottom + 6;
   const pickerW = 280, pickerH = 260;
