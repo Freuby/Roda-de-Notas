@@ -471,6 +471,25 @@
   .comment-del{background:none; border:none; color:var(--muted); font-size:11px; margin-left:6px;}
   .comment-del:hover{color:var(--terracotta);}
 
+  /* ---------- Block info tooltip ---------- */
+  .block-info-tip{
+    position:relative; display:inline-flex; align-items:center;
+  }
+  .block-info-icon{
+    font-size:11px; color:var(--muted); opacity:0; transition:opacity .12s;
+    cursor:default; padding:2px 3px; line-height:1;
+  }
+  .block-row:hover .block-info-icon,
+  .toggle-head:hover .block-info-icon{ opacity:1; }
+  .block-info-popup{
+    display:none; position:absolute; right:0; top:calc(100% + 5px);
+    background:var(--ink); color:#fff; font-size:11.5px; line-height:1.6;
+    padding:8px 12px; border-radius:8px; white-space:nowrap; z-index:50;
+    box-shadow:0 4px 16px rgba(0,0,0,.25); pointer-events:none;
+    min-width:180px;
+  }
+  .block-info-tip:hover .block-info-popup{ display:block; }
+
   /* ---------- Drag & Drop ---------- */
   .block{ position:relative; }
   .main-inner{ padding-left:48px; } /* room for drag handle on the left */
