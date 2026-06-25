@@ -358,6 +358,51 @@
   }
   .page-locked-banner button:hover{background:var(--ochre); color:#fff;}
 
+  /* ---------- Répertoire des chants ---------- */
+  .repertoire-row{
+    font-size:13px; color:var(--green-light); font-style:italic;
+    margin-top:4px; border:1px dashed var(--border);
+  }
+  .repertoire-row.active{ background:var(--green-soft); border-color:var(--green-light); color:var(--green); font-style:normal; font-weight:600; }
+  .repertoire-row:hover{ background:var(--green-soft); border-color:var(--green-light); }
+  .repertoire-icon{ font-style:normal; }
+
+  .repertoire-page{ padding-bottom:60px; }
+  .page-title-display{
+    font-size:26px; font-weight:700; color:var(--ink);
+    margin:0 0 4px; font-family:'Poppins',sans-serif;
+  }
+  .repertoire-loading, .repertoire-empty{
+    color:var(--muted); font-style:italic; margin-top:24px; font-size:14px;
+  }
+  .repertoire-category{ margin-bottom:32px; }
+  .repertoire-cat-title{
+    font-family:'Poppins',sans-serif; font-size:13px; font-weight:700;
+    text-transform:uppercase; letter-spacing:.8px; color:var(--terracotta);
+    margin:0 0 12px; padding-bottom:6px; border-bottom:2px solid var(--terracotta-soft);
+  }
+  .repertoire-songs-grid{
+    display:flex; flex-direction:column; gap:8px;
+  }
+  .repertoire-song-card{
+    display:flex; align-items:flex-start; gap:12px;
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    padding:12px 14px;
+  }
+  .repertoire-song-note{
+    width:32px; height:32px; border-radius:50%; flex-shrink:0;
+    background:var(--terracotta-soft); color:var(--terracotta);
+    display:flex; align-items:center; justify-content:center; font-size:15px;
+  }
+  .repertoire-song-info{ flex:1; min-width:0; }
+  .repertoire-song-title{ font-weight:600; font-size:14.5px; color:var(--ink); margin-bottom:2px; }
+  .repertoire-song-mnemonic{ font-size:12px; color:var(--muted); font-style:italic; margin-bottom:4px; }
+  .repertoire-song-pages{ display:flex; flex-wrap:wrap; gap:4px; margin-top:4px; }
+  .repertoire-page-tag{
+    font-size:10.5px; padding:2px 7px; border-radius:99px;
+    background:var(--green-soft); color:var(--green); font-weight:600;
+  }
+
   /* ---------- Prerequisites ---------- */
   .prereq-summary-bar{
     display:flex; align-items:flex-start; gap:10px; justify-content:space-between;
