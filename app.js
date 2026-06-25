@@ -19,7 +19,8 @@ const state = {
   spaces: [],
   currentSpaceId: null,
   pages: [],
-  currentPageId: null,
+  currentPageId: null,        // null | uuid | '__repertoire__'
+  repertoireSongs: null,      // null = loading, [] = loaded (list of {song, pageTitle})
   blocks: [],
   comments: {},          // block_id -> [comments]
   openComments: new Set(),
@@ -501,6 +502,115 @@ async function selectPage(id, skipRender){
   if(!skipRender) render();
   await Promise.all([loadBlocks(id), loadPagePrerequisites(id), ensurePrerequisitesLoaded()]);
   render();
+}
+
+async function openRepertoire(){
+  state.currentPageId = '__repertoire__';
+  state.blocks = [];
+  state.comments = {};
+  state.pagePrereqIds = new Set();
+  state.prereqPanelOpen = false;
+  state.repertoireSongs = null;
+  render();
+  await loadRepertoireSongs();
+  render();
+}
+
+async function loadRepertoireSongs(){
+  if(!state.currentSpaceId) return;
+  const pageIds = state.pages.map(p=>p.id);
+  if(!pageIds.length){ state.repertoireSongs = []; return; }
+
+  // fetch all song blocks for pages in the current space
+  const { data: songBlocks, error } = await sb
+    .from('blocks')
+    .select('id, page_id, content')
+    .in('page_id', pageIds)
+    .eq('type', 'song');
+  if(error){ state.repertoireSongs = []; return; }
+
+  // Also load full song details for each unique song_id
+  const songIds = [...new Set((songBlocks||[]).map(b=>b.content?.song_id).filter(Boolean))];
+  let songsMap = {};
+  if(songIds.length){
+    const { data: songs } = await sb.from('songs').select('*').in('id', songIds);
+    (songs||[]).forEach(s=> songsMap[s.id] = s);
+  }
+
+  // deduplicate by song_id, attach page titles
+  const byId = {};
+  for(const block of songBlocks||[]){
+    const sid = block.content?.song_id;
+    if(!sid) continue;
+    const page = state.pages.find(p=>p.id===block.page_id);
+    if(!byId[sid]){
+      byId[sid] = { song: songsMap[sid] || block.content, pages: [] };
+    }
+    if(page && !byId[sid].pages.includes(page.title)){
+      byId[sid].pages.push(page.title);
+    }
+  }
+
+  state.repertoireSongs = Object.values(byId).sort((a,b)=>{
+    const catA = a.song?.category || 'z';
+    const catB = b.song?.category || 'z';
+    if(catA !== catB) return catA.localeCompare(catB);
+    return (a.song?.title||'').localeCompare(b.song?.title||'');
+  });
+}
+
+function renderRepertoirePage(){
+  const space = state.spaces.find(s=>s.id===state.currentSpaceId);
+  const spaceName = space?.name || 'cet espace';
+
+  if(state.repertoireSongs === null){
+    return `<div class="repertoire-page">
+      <h1 class="font-display page-title-display">🎵 Répertoire des chants</h1>
+      <p class="page-meta">${esc(spaceName)}</p>
+      <p class="repertoire-loading">Chargement…</p>
+    </div>`;
+  }
+  if(!state.repertoireSongs.length){
+    return `<div class="repertoire-page">
+      <h1 class="font-display page-title-display">🎵 Répertoire des chants</h1>
+      <p class="page-meta">${esc(spaceName)}</p>
+      <p class="repertoire-empty">Aucun chant utilisé dans les cours de cet espace pour l'instant.</p>
+    </div>`;
+  }
+
+  // group by category
+  const byCategory = {};
+  for(const entry of state.repertoireSongs){
+    const cat = entry.song?.category || 'autre';
+    if(!byCategory[cat]) byCategory[cat] = [];
+    byCategory[cat].push(entry);
+  }
+
+  const total = state.repertoireSongs.length;
+
+  return `<div class="repertoire-page">
+    <h1 class="font-display page-title-display">🎵 Répertoire des chants</h1>
+    <p class="page-meta">${esc(spaceName)} · ${total} chant${total>1?'s':''} travaillé${total>1?'s':''}</p>
+
+    ${Object.entries(byCategory).map(([cat, entries])=>`
+      <div class="repertoire-category">
+        <h3 class="repertoire-cat-title">${esc(SONG_CATEGORIES[cat]||cat)}</h3>
+        <div class="repertoire-songs-grid">
+          ${entries.map(entry=>{
+            const s = entry.song || {};
+            return `<div class="repertoire-song-card">
+              <div class="repertoire-song-note">♪</div>
+              <div class="repertoire-song-info">
+                <div class="repertoire-song-title">${esc(s.title||'Sans titre')}</div>
+                ${s.mnemonic ? `<div class="repertoire-song-mnemonic">${esc(s.mnemonic)}</div>` : ''}
+                <div class="repertoire-song-pages">${entry.pages.map(t=>`<span class="repertoire-page-tag">${esc(t)}</span>`).join('')}</div>
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+    `).join('')}
+  </div>`;
 }
 
 const LAST_LOCATION_KEY = 'roda-last-location';
@@ -1553,13 +1663,15 @@ function renderApp(){
               }
             </button>
             <button class="icon-btn" data-duplicate-page="${p.id}" title="Dupliquer ce cours">⧉</button>
-            <button class="icon-btn" data-move-page="${p.id}" data-dir="-1" title="Monter">▲</button>
-            <button class="icon-btn" data-move-page="${p.id}" data-dir="1" title="Descendre">▼</button>
             ${!p.locked ? `<button class="icon-btn" data-delete-page="${p.id}" title="Supprimer">✕</button>` : ''}
           </span>
         </div>
       `).join('')}
       ${state.currentSpaceId ? `<button class="add-link" data-create-page="1" title="Nouveau cours"><span class="add-link-icon">＋</span><span class="add-link-text">Nouveau cours</span></button>` : ''}
+      ${state.currentSpaceId ? `
+        <button class="page-row repertoire-row ${state.currentPageId==='__repertoire__'?'active':''}" data-open-repertoire="1" title="Répertoire des chants de l'année">
+          <span class="ptitle"><span class="repertoire-icon">🎵</span><span class="add-link-text"> Répertoire des chants</span></span>
+        </button>` : ''}
     </div>
     <div class="sidebar-footer">
       <span class="who" title="${esc(profileName(state.session.user.id))}">${esc(profileName(state.session.user.id))}</span>
@@ -1573,7 +1685,7 @@ function renderApp(){
   </div>
   <div class="main">
     <div class="main-inner">
-      ${page ? renderPage(page) : renderEmptyState()}
+      ${state.currentPageId === '__repertoire__' ? renderRepertoirePage() : page ? renderPage(page) : renderEmptyState()}
     </div>
   </div>
   ${state.typeMenu ? renderTypeMenu() : ''}
@@ -2126,6 +2238,10 @@ function attachAppEvents(){
     el.addEventListener('click', (e)=>{ e.stopPropagation(); const s=state.spaces.find(x=>x.id===el.dataset.deleteSpace); if(s) deleteSpace(s); });
   });
   document.querySelectorAll('[data-create-space]').forEach(el=> el.addEventListener('click', createSpace));
+
+  document.querySelectorAll('[data-open-repertoire]').forEach(el=>{
+    el.addEventListener('click', ()=>{ openRepertoire(); state.sidebarOpen=false; });
+  });
 
   // pages
   document.querySelectorAll('[data-select-page]').forEach(el=>{
