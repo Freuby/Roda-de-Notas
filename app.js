@@ -2194,7 +2194,7 @@ function attachAppEvents(){
     const overlay = wrap.querySelector('.menu-overlay');
     document.body.appendChild(overlay);
     overlay.addEventListener('click', (e)=>{
-      if(e.target.dataset.closeSongPicker!==undefined){ state.songPickerForBlock=null; render(); }
+      if(e.target.closest('[data-close-song-picker]')){ state.songPickerForBlock=null; render(); }
     });
     const search = overlay.querySelector('#song-search');
     if(search){
