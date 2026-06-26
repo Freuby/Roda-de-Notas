@@ -2127,7 +2127,7 @@ function renderSongPicker(){
           `).join('') : `<p style="padding:16px; color:var(--muted);">Aucun chant trouvé.</p>`}
       </div>
       <div style="padding:10px 18px; border-top:1px solid var(--border); text-align:right;">
-        <button class="icon-btn" data-close-song-picker="1" style="font-size:13px; padding:6px 10px;">Fermer</button>
+        <button class="icon-btn song-picker-close-btn" style="font-size:13px; padding:6px 10px;">Fermer</button>
       </div>
     </div>
   </div>`;
@@ -2188,28 +2188,42 @@ function attachAppEvents(){
 
   // song picker overlay (separate from main render to allow live search)
   if(state.songPickerForBlock){
-    document.querySelectorAll('body > .menu-overlay').forEach(o=>o.remove());
-    const wrap = document.createElement('div');
-    wrap.innerHTML = renderSongPicker();
-    const overlay = wrap.querySelector('.menu-overlay');
+    // Remove any stale overlay
+    document.querySelectorAll('body > .song-picker-overlay').forEach(o=>o.remove());
+    const overlay = document.createElement('div');
+    overlay.className = 'menu-overlay song-picker-overlay';
+    overlay.style.cssText = 'display:flex;align-items:center;justify-content:center;background:rgba(43,36,32,.35);';
+    overlay.innerHTML = renderSongPicker();
     document.body.appendChild(overlay);
-    overlay.addEventListener('click', (e)=>{
-      // close when clicking the dark backdrop (the overlay itself, not the modal)
-      if(e.target === overlay){ state.songPickerForBlock=null; render(); }
-    });
-    const closeBtn = overlay.querySelector('[data-close-song-picker]:not(.menu-overlay)');
-    if(closeBtn) closeBtn.addEventListener('click', ()=>{ state.songPickerForBlock=null; render(); });
-    const search = overlay.querySelector('#song-search');
-    if(search){
-      search.addEventListener('input', (e)=>{ state.songPickerQuery = e.target.value; refreshSongPickerList(); });
-    }
+
+    const closePicker = ()=>{
+      overlay.remove();
+      state.songPickerForBlock = null;
+      state.songPickerQuery = '';
+      render();
+    };
+
+    // close on backdrop click
+    overlay.addEventListener('click', (e)=>{ if(e.target === overlay) closePicker(); });
+
+    // close button — direct listener, no propagation needed
+    overlay.querySelector('.song-picker-close-btn')
+      ?.addEventListener('click', closePicker);
+
+    // search input
+    overlay.querySelector('#song-search')
+      ?.addEventListener('input', (e)=>{ state.songPickerQuery = e.target.value; refreshSongPickerList(); });
+
+    // choose a song
     overlay.querySelectorAll('[data-choose-song]').forEach(btn=>{
       btn.addEventListener('click', ()=>{
         const song = state.allSongs.find(s=>s.id===btn.dataset.chooseSong);
         const block = state.blocks.find(b=>b.id===state.songPickerForBlock);
-        if(song && block) chooseSong(block, song);
+        if(song && block){ overlay.remove(); chooseSong(block, song); }
       });
     });
+  } else {
+    document.querySelectorAll('body > .song-picker-overlay').forEach(o=>o.remove());
   }
 
   // topbar
