@@ -297,6 +297,11 @@
     color:#cbb89a; font-size:13px; flex-direction:column; gap:8px;
   }
 
+  .song-picker-modal{
+    background:var(--surface); border-radius:14px; width:min(520px, 92vw);
+    max-height:80vh; display:flex; flex-direction:column; overflow:hidden;
+    border:1px solid var(--border);
+  }
   .b-song .song-card{
     flex:1; min-width:0; border:1px solid var(--terracotta); border-radius:10px;
     background:#fff; overflow:hidden;
