@@ -2111,7 +2111,7 @@ function renderSongPicker(){
   const songs = (state.allSongs||[]).filter(s=> !q || normalize(s.title).includes(q) || normalize(s.lyrics).includes(q) || normalize(s.mnemonic).includes(q));
   return `
   <div class="menu-overlay" style="display:flex; align-items:center; justify-content:center; background:rgba(43,36,32,.35);" data-close-song-picker="1">
-    <div style="background:var(--surface); border-radius:14px; width:min(520px, 92vw); max-height:80vh; display:flex; flex-direction:column; overflow:hidden; border:1px solid var(--border);" onclick="event.stopPropagation()">
+    <div class="song-picker-modal" onclick="event.stopPropagation()">
       <div style="padding:16px 18px; border-bottom:1px solid var(--border);">
         <h3 style="margin:0 0 10px; font-size:17px;">Choisir un chant</h3>
         <input id="song-search" class="comment-input" style="width:100%;" placeholder="Rechercher un titre, des paroles…" value="${esc(state.songPickerQuery)}" autofocus>
@@ -2194,8 +2194,11 @@ function attachAppEvents(){
     const overlay = wrap.querySelector('.menu-overlay');
     document.body.appendChild(overlay);
     overlay.addEventListener('click', (e)=>{
-      if(e.target.closest('[data-close-song-picker]')){ state.songPickerForBlock=null; render(); }
+      // close when clicking the dark backdrop (the overlay itself, not the modal)
+      if(e.target === overlay){ state.songPickerForBlock=null; render(); }
     });
+    const closeBtn = overlay.querySelector('[data-close-song-picker]:not(.menu-overlay)');
+    if(closeBtn) closeBtn.addEventListener('click', ()=>{ state.songPickerForBlock=null; render(); });
     const search = overlay.querySelector('#song-search');
     if(search){
       search.addEventListener('input', (e)=>{ state.songPickerQuery = e.target.value; refreshSongPickerList(); });
