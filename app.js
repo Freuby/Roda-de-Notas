@@ -42,6 +42,7 @@ const state = {
   notifications: [],      // [{id, user_id, block_id, page_id, page_title, content, created_at, seen}]
   allPrerequisites: null,    // cached list of all prerequisite reference items
   pagePrereqIds: new Set(),  // prerequisite_id set for the currently open page
+  spacePrereqCounts: {},     // prerequisite_id -> count of pages in space where it's been seen
   spacePrereqCoverage: {},   // spaceId -> {2: pct, 3: pct, 4: pct}
   prereqPanelOpen: false,    // whether the selector panel is shown on the page
   prereqSearchQuery: '',     // live filter text inside the prerequisites panel
@@ -500,7 +501,7 @@ async function selectPage(id, skipRender){
   state.prereqPanelOpen = false;
   saveLastOpenedLocation();
   if(!skipRender) render();
-  await Promise.all([loadBlocks(id), loadPagePrerequisites(id), ensurePrerequisitesLoaded()]);
+  await Promise.all([loadBlocks(id), loadPagePrerequisites(id), ensurePrerequisitesLoaded(), loadSpacePrereqCounts(state.currentSpaceId)]);
   render();
 }
 
@@ -793,6 +794,22 @@ async function loadPagePrerequisites(pageId){
   state.pagePrereqIds = new Set((data||[]).map(r=>r.prerequisite_id));
 }
 
+async function loadSpacePrereqCounts(spaceId){
+  if(!spaceId) return;
+  const pageIds = state.pages.map(p=>p.id);
+  if(!pageIds.length){ state.spacePrereqCounts = {}; return; }
+  const { data, error } = await sb
+    .from('page_prerequisites')
+    .select('prerequisite_id')
+    .in('page_id', pageIds);
+  if(error){ return; }
+  const counts = {};
+  (data||[]).forEach(r=>{
+    counts[r.prerequisite_id] = (counts[r.prerequisite_id]||0) + 1;
+  });
+  state.spacePrereqCounts = counts;
+}
+
 async function togglePagePrerequisite(prereqId){
   const pageId = state.currentPageId;
   if(!pageId) return;
@@ -809,6 +826,7 @@ async function togglePagePrerequisite(prereqId){
     if(error){ showToast('Erreur de sauvegarde'); state.pagePrereqIds.delete(prereqId); renderPreservingPrereqScroll(); }
   }
   computeSpaceCoverage(state.currentSpaceId);
+  loadSpacePrereqCounts(state.currentSpaceId);
 }
 
 function renderPreservingPrereqScroll(){
@@ -1847,11 +1865,13 @@ function renderPrerequisitesSection(locked){
             <div class="prereq-cat-group">
               <p class="prereq-cat-label">${esc(categoryLabels[cat]||cat)}</p>
               <div class="prereq-chips">
-                ${byCat[cat].map(p=>`
-                  <button class="prereq-chip ${state.pagePrereqIds.has(p.id)?'checked':''}" data-toggle-prereq="${p.id}">
-                    ${state.pagePrereqIds.has(p.id)?'✓ ':''}${esc(p.label)}
-                  </button>
-                `).join('')}
+                ${byCat[cat].map(p=>{
+                  const count = state.spacePrereqCounts[p.id]||0;
+                  const checked = state.pagePrereqIds.has(p.id);
+                  return `<button class="prereq-chip ${checked?'checked':''} ${count===0?'prereq-chip-unseen':''}" data-toggle-prereq="${p.id}">
+                    ${checked?'✓ ':''}${esc(p.label)}${count>0?`<span class="prereq-chip-count">${count}</span>`:''}
+                  </button>`;
+                }).join('')}
               </div>
             </div>
           `).join('')}
