@@ -468,6 +468,14 @@
   }
   .prereq-chip:hover{ border-color:var(--terracotta); }
   .prereq-chip.checked{ background:var(--terracotta); color:#fff; border-color:var(--terracotta); font-weight:600; }
+  .prereq-chip-unseen{ border-style:dashed; opacity:.65; }
+  .prereq-chip-count{
+    display:inline-flex; align-items:center; justify-content:center;
+    margin-left:5px; background:rgba(0,0,0,.12); color:inherit;
+    font-size:10px; font-weight:700; border-radius:99px;
+    padding:1px 5px; min-width:16px; line-height:1.4;
+  }
+  .prereq-chip.checked .prereq-chip-count{ background:rgba(255,255,255,.25); }
 
   .add-block-btn{
     display:flex; align-items:center; gap:8px; color:var(--muted); background:none; border:1px dashed var(--border);
