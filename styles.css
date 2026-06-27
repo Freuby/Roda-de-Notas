@@ -390,10 +390,33 @@
     display:flex; flex-direction:column; gap:8px;
   }
   .repertoire-song-card{
-    display:flex; align-items:flex-start; gap:12px;
     background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
-    padding:12px 14px;
+    overflow:hidden; cursor:pointer; transition:border-color .15s;
   }
+  .repertoire-song-card:hover{ border-color:var(--terracotta); }
+  .repertoire-song-card.open{ border-color:var(--terracotta); }
+  .repertoire-song-head{
+    display:flex; align-items:flex-start; gap:12px; padding:12px 14px;
+  }
+  .repertoire-song-chevron{
+    flex-shrink:0; font-size:10px; color:var(--muted); margin-top:4px;
+  }
+  .repertoire-song-details{
+    padding:0 14px 14px 50px; border-top:1px solid var(--border);
+  }
+  .repertoire-song-lyrics{
+    font-family:'Inter', sans-serif; font-size:13px; line-height:1.7;
+    white-space:pre-wrap; color:var(--ink); margin:12px 0 10px;
+    background:var(--bg); border-radius:8px; padding:12px 14px;
+  }
+  .repertoire-no-lyrics{ color:var(--muted); font-style:italic; font-size:13px; margin:12px 0; }
+  .repertoire-song-link{
+    display:inline-flex; align-items:center; gap:6px;
+    color:var(--terracotta); font-weight:600; font-size:13px;
+    text-decoration:none; padding:6px 12px; border-radius:8px;
+    background:var(--terracotta-soft); margin-top:4px;
+  }
+  .repertoire-song-link:hover{ background:var(--terracotta); color:#fff; }
   .repertoire-song-note{
     width:32px; height:32px; border-radius:50%; flex-shrink:0;
     background:var(--terracotta-soft); color:var(--terracotta);
