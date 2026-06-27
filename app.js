@@ -2071,6 +2071,16 @@ function renderCommentPanel(block){
   const comments = state.comments[block.id]||[];
   const isOpen = state.openComments.has(block.id);
   if(!isOpen) return '';
+  if(!comments.length){
+    // Panneau ouvert mais vide : juste le formulaire, sans cadre encombrant
+    return `<div class="comments-panel comments-panel-empty">
+      <form class="comment-form" data-comment-form="${block.id}">
+        <input class="comment-input" placeholder="Ajouter un commentaire…" autocomplete="off" autofocus>
+        <button type="button" class="comment-emoji-btn" data-comment-emoji-toggle="${block.id}" title="Insérer un émoji">🙂</button>
+        <button class="comment-send" type="submit">Envoyer</button>
+      </form>
+    </div>`;
+  }
   const meId = state.session.user.id;
   return `
     <div class="comments-panel">
@@ -2081,7 +2091,7 @@ function renderCommentPanel(block){
           ${c.user_id===meId?`<button class="comment-del" data-delete-comment="${block.id}|${c.id}">supprimer</button>`:''}
           <div class="comment-text">${esc(c.content)}</div>
         </div>
-      `).join('') || `<p style="font-size:12.5px; color:var(--muted); margin:0 0 6px;">Aucun commentaire pour l'instant.</p>`}
+      `).join('')}
       <form class="comment-form" data-comment-form="${block.id}">
         <input class="comment-input" placeholder="Ajouter un commentaire…" autocomplete="off">
         <button type="button" class="comment-emoji-btn" data-comment-emoji-toggle="${block.id}" title="Insérer un émoji">🙂</button>
