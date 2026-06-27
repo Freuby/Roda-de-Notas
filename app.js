@@ -21,6 +21,7 @@ const state = {
   pages: [],
   currentPageId: null,        // null | uuid | '__repertoire__'
   repertoireSongs: null,      // null = loading, [] = loaded (list of {song, pageTitle})
+  repertoireExpanded: new Set(), // set of song ids currently expanded
   blocks: [],
   comments: {},          // block_id -> [comments]
   openComments: new Set(),
@@ -599,13 +600,22 @@ function renderRepertoirePage(){
         <div class="repertoire-songs-grid">
           ${entries.map(entry=>{
             const s = entry.song || {};
-            return `<div class="repertoire-song-card">
-              <div class="repertoire-song-note">♪</div>
-              <div class="repertoire-song-info">
-                <div class="repertoire-song-title">${esc(s.title||'Sans titre')}</div>
-                ${s.mnemonic ? `<div class="repertoire-song-mnemonic">${esc(s.mnemonic)}</div>` : ''}
-                <div class="repertoire-song-pages">${entry.pages.map(t=>`<span class="repertoire-page-tag">${esc(t)}</span>`).join('')}</div>
+            const isOpen = state.repertoireExpanded.has(s.id||entry._key||s.title);
+            const cardKey = s.id || s.title || '';
+            return `<div class="repertoire-song-card ${isOpen?'open':''}" data-toggle-repertoire-song="${esc(cardKey)}">
+              <div class="repertoire-song-head">
+                <div class="repertoire-song-note">♪</div>
+                <div class="repertoire-song-info">
+                  <div class="repertoire-song-title">${esc(s.title||'Sans titre')}</div>
+                  ${s.mnemonic ? `<div class="repertoire-song-mnemonic">${esc(s.mnemonic)}</div>` : ''}
+                  <div class="repertoire-song-pages">${entry.pages.map(t=>`<span class="repertoire-page-tag">${esc(t)}</span>`).join('')}</div>
+                </div>
+                <span class="repertoire-song-chevron">${isOpen?'▲':'▼'}</span>
               </div>
+              ${isOpen ? `<div class="repertoire-song-details">
+                ${s.lyrics ? `<pre class="repertoire-song-lyrics">${esc(s.lyrics)}</pre>` : '<p class="repertoire-no-lyrics">Paroles non renseignées.</p>'}
+                ${s.mediaLink ? `<a href="${esc(s.mediaLink)}" target="_blank" rel="noopener" class="repertoire-song-link">↗ Écouter / Voir la vidéo</a>` : ''}
+              </div>` : ''}
             </div>`;
           }).join('')}
         </div>
@@ -2275,6 +2285,15 @@ function attachAppEvents(){
     el.addEventListener('click', (e)=>{ e.stopPropagation(); const s=state.spaces.find(x=>x.id===el.dataset.deleteSpace); if(s) deleteSpace(s); });
   });
   document.querySelectorAll('[data-create-space]').forEach(el=> el.addEventListener('click', createSpace));
+
+  document.querySelectorAll('[data-toggle-repertoire-song]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const key = el.dataset.toggleRepertoireSong;
+      if(state.repertoireExpanded.has(key)) state.repertoireExpanded.delete(key);
+      else state.repertoireExpanded.add(key);
+      render();
+    });
+  });
 
   document.querySelectorAll('[data-open-repertoire]').forEach(el=>{
     el.addEventListener('click', ()=>{ openRepertoire(); state.sidebarOpen=false; });
