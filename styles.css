@@ -535,6 +535,9 @@
   .comments-panel{
     margin:6px 0 10px 0; padding:10px 12px; background:var(--bg); border-radius:8px; border:1px solid var(--border);
   }
+  .comments-panel-empty{
+    background:none; border:none; padding:4px 0 8px;
+  }
   .comment-item{font-size:13px; margin-bottom:8px;}
   .comment-author{font-weight:600; color:var(--green); margin-right:6px;}
   .comment-date{font-size:11px; color:var(--muted);}
