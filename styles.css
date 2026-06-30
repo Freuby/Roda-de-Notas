@@ -579,7 +579,7 @@
   /* ---------- Drag & Drop ---------- */
   .block{ position:relative; }
   .main-inner{ padding-left:48px; } /* room for drag handle on the left */
-  @media (max-width: 480px){
+  @media (max-width: 560px){
     .main-inner{ padding-left:28px; }
     .drag-handle{ left:-20px; font-size:12px; }
   }
@@ -804,4 +804,30 @@
     .sidebar.collapsed .who{ display:revert; }
     .sidebar.collapsed .page-row::before{ content:none; }
     .sidebar.collapsed .sidebar-collapse-btn{ display:none; }
+
+    /* ---------- Blocks: reclaim full width on mobile ---------- */
+    .main-inner{ padding-left:16px; padding-right:16px; }
+    .drag-handle{ display:none; } /* drag isn't practical on touch anyway */
+    .block-row{
+      flex-wrap:wrap; gap:2px 6px;
+    }
+    .block-content{
+      flex-basis:100%; width:100%;
+    }
+    .block-controls{
+      opacity:1; /* no hover state on touch devices, so always show */
+      position:static;
+      flex-basis:100%; width:100%;
+      justify-content:flex-end;
+      padding-top:0;
+      margin-top:2px;
+    }
+    .block-controls .icon-btn,
+    .block-controls .comment-toggle,
+    .block-controls .drag-handle{
+      font-size:13px; padding:4px 5px;
+    }
+    .block-info-popup{
+      right:0; left:auto; max-width:80vw; white-space:normal;
+    }
   }
