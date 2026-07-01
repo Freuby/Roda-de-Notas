@@ -75,6 +75,22 @@ const root = document.getElementById('root');
 function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function uid(){ return crypto.randomUUID(); }
 
+// Allow only safe URL schemes in href/src attributes. Prevents XSS via
+// "javascript:", "data:", "vbscript:" and other dangerous schemes coming from
+// user-controlled data (song mediaLink, video block url, etc.).
+// Returns a safe URL, or '#' if the input is not a recognized safe scheme.
+function safeUrl(u){
+  if(!u || typeof u !== 'string') return '#';
+  const s = u.trim();
+  if(!s) return '#';
+  // relative URLs (/, ./, ../) and fragments are safe
+  if(s.startsWith('/') || s.startsWith('./') || s.startsWith('../') || s.startsWith('#')) return s;
+  // explicit allow-list of schemes (case-insensitive)
+  if(/^(https?|mailto|tel):/i.test(s)) return s;
+  // anything else (javascript:, data:, vbscript:, etc.) is neutralized
+  return '#';
+}
+
 function showToast(msg){
   let t = document.querySelector('.toast');
   if(!t){ t = document.createElement('div'); t.className='toast'; document.body.appendChild(t); }
@@ -667,7 +683,7 @@ function renderRepertoirePage(){
               </div>
               ${isOpen ? `<div class="repertoire-song-details">
                 ${s.lyrics ? `<pre class="repertoire-song-lyrics">${esc(s.lyrics)}</pre>` : '<p class="repertoire-no-lyrics">Paroles non renseignées.</p>'}
-                ${s.mediaLink ? `<a href="${esc(s.mediaLink)}" target="_blank" rel="noopener" class="repertoire-song-link">↗ Écouter / Voir la vidéo</a>` : ''}
+                ${s.mediaLink ? `<a href="${esc(safeUrl(s.mediaLink))}" target="_blank" rel="noopener" class="repertoire-song-link">↗ Écouter / Voir la vidéo</a>` : ''}
               </div>` : ''}
             </div>`;
           }).join('')}
@@ -1048,14 +1064,14 @@ function buildArchiveHtml(space, pages, blocks){
       case 'numbered': inner = `<div style="margin:2px 0;padding-left:${indent}px;">${esc(c.text||'')}</div>`; break;
       case 'callout': inner = `<div style="background:#F6E8C8;border-radius:8px;padding:10px 14px;margin:8px 0;white-space:pre-wrap;">${esc(c.emoji||'💡')} ${esc(c.text||'')}</div>`; break;
       case 'divider': inner = `<hr style="border:none;border-top:1px dashed #ccc;margin:14px 0;">`; break;
-      case 'video': inner = c.url ? `<p style="margin:6px 0;">🎬 <a href="${esc(c.url)}" target="_blank">${esc(c.url)}</a>${c.caption?` — <em>${esc(c.caption)}</em>`:''}</p>` : '';
+      case 'video': inner = c.url ? `<p style="margin:6px 0;">🎬 <a href="${esc(safeUrl(c.url))}" target="_blank">${esc(c.url)}</a>${c.caption?` — <em>${esc(c.caption)}</em>`:''}</p>` : '';
         break;
       case 'song':
         inner = `<div style="border:1px solid #C1502E;border-radius:8px;padding:10px 14px;margin:8px 0;">
           <strong>♪ ${esc(c.title||'Sans titre')}</strong>${c.category?` <span style="font-size:11px;color:#C1502E;">(${esc(SONG_CATEGORIES[c.category]||c.category)})</span>`:''}
           ${c.lyrics?`<div style="white-space:pre-wrap;margin-top:6px;font-size:13.5px;">${esc(c.lyrics)}</div>`:''}
           ${c.mnemonic?`<div style="margin-top:6px;font-style:italic;color:#2F6F4F;font-size:12.5px;">💭 ${esc(c.mnemonic)}</div>`:''}
-          ${c.mediaLink?`<p style="margin-top:6px;"><a href="${esc(c.mediaLink)}" target="_blank">🔗 Écouter / regarder</a></p>`:''}
+          ${c.mediaLink?`<p style="margin-top:6px;"><a href="${esc(safeUrl(c.mediaLink))}" target="_blank">🔗 Écouter / regarder</a></p>`:''}
         </div>`;
         break;
       case 'toggle':
@@ -2089,7 +2105,7 @@ function renderSongBlock(block, c, locked){
     <div class="song-body ${isOpen?'open':''}">
       ${c.lyrics ? `<div class="song-lyrics">${esc(c.lyrics)}</div>` : `<p style="color:var(--muted); font-size:13px;">Pas de paroles enregistrées.</p>`}
       ${c.mnemonic ? `<div class="song-mnemonic">💭 ${esc(c.mnemonic)}</div>` : ''}
-      ${c.mediaLink ? `<p style="margin-top:8px;"><a href="${esc(c.mediaLink)}" target="_blank" rel="noopener" style="color:var(--terracotta); font-size:13px;">🔗 Écouter / regarder</a></p>` : ''}
+      ${c.mediaLink ? `<p style="margin-top:8px;"><a href="${esc(safeUrl(c.mediaLink))}" target="_blank" rel="noopener" style="color:var(--terracotta); font-size:13px;">🔗 Écouter / regarder</a></p>` : ''}
     </div>
   </div>`;
 }
