@@ -2201,18 +2201,31 @@ function attachAppEvents(){
   // prerequisites panel toggle and chips
   // mobile: show block controls only on tapped block
   if(window.matchMedia('(max-width:560px)').matches){
+    let touchStartY = 0;
     document.querySelectorAll('[data-block-id]').forEach(el=>{
       el.addEventListener('touchstart', (e)=>{
-        const id = el.dataset.blockId;
-        if(state.activeBlockId === id) return; // already active, let tap propagate normally
-        // clicking a control button should not re-toggle the block
+        touchStartY = e.touches[0].clientY;
+      }, {passive:true});
+      el.addEventListener('touchend', (e)=>{
+        // ignore if user scrolled more than 8px — it's a scroll not a tap
+        if(Math.abs(e.changedTouches[0].clientY - touchStartY) > 8) return;
+        // ignore taps on control buttons themselves (let them fire normally)
         if(e.target.closest('.block-controls')) return;
-        state.activeBlockId = id;
+        const id = el.dataset.blockId;
+        if(state.activeBlockId === id){
+          state.activeBlockId = null;
+        } else {
+          state.activeBlockId = id;
+        }
+        // preserve scroll position across render
+        const mainEl = document.querySelector('.main');
+        const scrollTop = mainEl ? mainEl.scrollTop : 0;
         render();
+        if(mainEl) mainEl.scrollTop = scrollTop;
       }, {passive:true});
     });
-    // tap outside any block clears active
-    document.querySelector('.main-inner')?.addEventListener('touchstart', (e)=>{
+    // tap on empty area clears active block
+    document.querySelector('.main')?.addEventListener('touchend', (e)=>{
       if(!e.target.closest('[data-block-id]') && state.activeBlockId){
         state.activeBlockId = null;
         render();
