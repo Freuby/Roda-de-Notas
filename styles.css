@@ -814,6 +814,15 @@
     .block-content{
       flex-basis:100%; width:100%;
     }
+    /* bullets & numbered lists: keep marker beside text (not stacked above),
+       while still allowing controls to wrap onto their own row below */
+    .b-bullet .block-row, .b-numbered .block-row{ flex-wrap:wrap; }
+    .b-bullet .marker, .b-numbered .marker{
+      flex-basis:auto; width:20px;
+    }
+    .b-bullet .block-content, .b-numbered .block-content{
+      flex-basis:0; flex-grow:1; width:auto; min-width:0;
+    }
     .block-controls{
       opacity:1; /* no hover state on touch devices, so always show */
       position:static;
