@@ -824,12 +824,21 @@
       flex-basis:0; flex-grow:1; width:auto; min-width:0;
     }
     .block-controls{
-      opacity:1; /* no hover state on touch devices, so always show */
-      position:static;
+      opacity:0;
+      max-height:0;
+      overflow:hidden;
+      pointer-events:none;
       flex-basis:100%; width:100%;
       justify-content:flex-end;
       padding-top:0;
-      margin-top:2px;
+      margin-top:0;
+      transition:opacity .15s, max-height .15s;
+    }
+    .block-controls-active{
+      opacity:1;
+      max-height:48px;
+      pointer-events:auto;
+      margin-top:4px;
     }
     .block-controls .icon-btn,
     .block-controls .comment-toggle,
