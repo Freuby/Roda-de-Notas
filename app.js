@@ -2218,17 +2218,24 @@ function attachAppEvents(){
           state.activeBlockId = id;
         }
         // preserve scroll position across render
-        const mainEl = document.querySelector('.main');
-        const scrollTop = mainEl ? mainEl.scrollTop : 0;
+        // NOTE: capture scrollTop before render(), then re-query .main AFTER,
+        // because render() replaces root.innerHTML and detaches the old element.
+        const mainElBefore = document.querySelector('.main');
+        const scrollTop = mainElBefore ? mainElBefore.scrollTop : 0;
         render();
-        if(mainEl) mainEl.scrollTop = scrollTop;
+        const mainElAfter = document.querySelector('.main');
+        if(mainElAfter) mainElAfter.scrollTop = scrollTop;
       }, {passive:true});
     });
     // tap on empty area clears active block
     document.querySelector('.main')?.addEventListener('touchend', (e)=>{
       if(!e.target.closest('[data-block-id]') && state.activeBlockId){
+        const mainBefore = document.querySelector('.main');
+        const scTop = mainBefore ? mainBefore.scrollTop : 0;
         state.activeBlockId = null;
         render();
+        const mainAfter = document.querySelector('.main');
+        if(mainAfter) mainAfter.scrollTop = scTop;
       }
     }, {passive:true});
   }
