@@ -47,7 +47,7 @@ const state = {
   spacePrereqCoverage: {},   // spaceId -> {2: pct, 3: pct, 4: pct}
   prereqPanelOpen: false,    // whether the selector panel is shown on the page
   prereqSearchQuery: '',     // live filter text inside the prerequisites panel
-  emojiPickerForBlock: null, // block id currently showing the emoji picker, or null
+  activeBlockId: null,       // block currently tapped on mobile
   notifPanelOpen: false,
   notifTimer: null,
 };
@@ -1898,8 +1898,9 @@ function renderBlock(block, depth, locked){
   const canUp = idx>0, canDown = idx<siblings.length-1;
   const dragHandle = locked ? '' : `<button class="drag-handle" data-drag-handle="${block.id}" title="Glisser pour déplacer" draggable="false">⠿</button>`;
   const blockInfoTip = renderBlockInfoTip(block);
+  const isActiveBlock = state.activeBlockId === block.id;
   const controls = locked ? `<div class="block-controls">${blockInfoTip}</div>` : `
-    <div class="block-controls">
+    <div class="block-controls${isActiveBlock?' block-controls-active':''}">
       ${renderCommentToggle(block)}
       ${blockInfoTip}
       <button class="icon-btn" data-emoji-picker-toggle="${block.id}" title="Insérer un émoji">🙂</button>
@@ -2198,6 +2199,27 @@ function attachAppEvents(){
   }
 
   // prerequisites panel toggle and chips
+  // mobile: show block controls only on tapped block
+  if(window.matchMedia('(max-width:560px)').matches){
+    document.querySelectorAll('[data-block-id]').forEach(el=>{
+      el.addEventListener('touchstart', (e)=>{
+        const id = el.dataset.blockId;
+        if(state.activeBlockId === id) return; // already active, let tap propagate normally
+        // clicking a control button should not re-toggle the block
+        if(e.target.closest('.block-controls')) return;
+        state.activeBlockId = id;
+        render();
+      }, {passive:true});
+    });
+    // tap outside any block clears active
+    document.querySelector('.main-inner')?.addEventListener('touchstart', (e)=>{
+      if(!e.target.closest('[data-block-id]') && state.activeBlockId){
+        state.activeBlockId = null;
+        render();
+      }
+    }, {passive:true});
+  }
+
   document.querySelectorAll('[data-toggle-prereq-panel]').forEach(el=>{
     el.addEventListener('click', ()=>{
       state.prereqPanelOpen = !state.prereqPanelOpen;
