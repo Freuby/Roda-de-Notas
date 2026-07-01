@@ -197,14 +197,67 @@ async function loadNotifications(){
   }));
 }
 
+// True when the user is actively typing somewhere (contenteditable or input).
+// Used to avoid background renders that would steal focus / cursor position.
+function isEditing(){
+  const ae = document.activeElement;
+  if(!ae) return false;
+  if(ae.isContentEditable) return true;
+  const tag = ae.tagName;
+  return tag === 'INPUT' || tag === 'TEXTAREA';
+}
+
+// Updates ONLY the notification badge in the sidebar, without a full render.
+// This lets the polling refresh the badge while the user is editing a block
+// (a full render would replace root.innerHTML and kill the caret position).
+function patchNotifBadge(){
+  const unseen = state.notifications.filter(n=>!n.seen).length;
+  const btn = document.querySelector('.notif-btn');
+  if(!btn) return;
+  btn.classList.toggle('has', unseen > 0);
+  let badge = btn.querySelector('.notif-badge');
+  if(unseen > 0){
+    if(!badge){ badge = document.createElement('span'); badge.className='notif-badge'; btn.appendChild(badge); }
+    badge.textContent = unseen;
+  } else if(badge){
+    badge.remove();
+  }
+  // If the notifications panel is open, refresh its list in place too
+  // (preserving scroll), since the user is reading it — not editing a block.
+  const list = document.querySelector('.notif-list');
+  if(list && document.querySelector('.notif-panel')){
+    const scTop = list.scrollTop;
+    const head = document.querySelector('.notif-head');
+    const fresh = document.createElement('div');
+    fresh.innerHTML = renderNotifPanel();
+    const newList = fresh.querySelector('.notif-list');
+    if(newList){ list.innerHTML = newList.innerHTML; list.scrollTop = scTop; }
+    // refresh the head (mark-all-seen link visibility)
+    const newHead = fresh.querySelector('.notif-head');
+    if(head && newHead){ head.innerHTML = newHead.innerHTML; }
+    attachNotifPanelEvents();
+  }
+}
+
 function startNotifPolling(){
   if(state.notifTimer) clearInterval(state.notifTimer);
   state.notifTimer = setInterval(async ()=>{
     const prevUnseen = state.notifications.filter(n=>!n.seen).length;
     await loadNotifications();
     const newUnseen = state.notifications.filter(n=>!n.seen).length;
-    if(newUnseen > prevUnseen) render(); // re-render badge
-    else if(newUnseen !== prevUnseen) render();
+    if(newUnseen === prevUnseen) return;            // nothing changed
+    if(isEditing()){
+      patchNotifBadge();                            // targeted update, preserve caret
+    } else if(state.notifPanelOpen){
+      // panel open but user is not typing: refresh it while preserving its scroll
+      const list = document.querySelector('.notif-list');
+      const scTop = list ? list.scrollTop : 0;
+      render();
+      const newList = document.querySelector('.notif-list');
+      if(newList) newList.scrollTop = scTop;
+    } else {
+      render();
+    }
   }, 30000);
 }
 
@@ -2457,22 +2510,7 @@ function attachAppEvents(){
   if(so) so.addEventListener('click', doSignOut);
 
   // notifications
-  document.querySelectorAll('[data-notif-panel]').forEach(el=>{
-    el.addEventListener('click', (e)=>{
-      e.stopPropagation();
-      state.notifPanelOpen = !state.notifPanelOpen;
-      render();
-    });
-  });
-  document.querySelectorAll('[data-mark-all-seen]').forEach(el=>{
-    el.addEventListener('click', (e)=>{ e.stopPropagation(); markAllSeen(); });
-  });
-  document.querySelectorAll('[data-goto-notif]').forEach(el=>{
-    el.addEventListener('click', ()=>{
-      const notif = state.notifications.find(n=>n.id===el.dataset.gotoNotif);
-      if(notif) goToNotification(notif);
-    });
-  });
+  attachNotifPanelEvents();
 
   // add root block
   document.querySelectorAll('[data-add-root]').forEach(el=>{
@@ -2588,6 +2626,28 @@ function attachAppEvents(){
       const [blockId, commentId] = el.dataset.deleteComment.split('|');
       const c = (state.comments[blockId]||[]).find(x=>x.id===commentId);
       if(c) deleteComment(blockId, c);
+    });
+  });
+}
+
+// Events for the notifications panel (bell toggle, "mark all seen", click a notif).
+// Extracted from attachAppEvents() so patchNotifBadge() can re-attach them after
+// a targeted DOM update of the panel list without a full render.
+function attachNotifPanelEvents(){
+  document.querySelectorAll('[data-notif-panel]').forEach(el=>{
+    el.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      state.notifPanelOpen = !state.notifPanelOpen;
+      render();
+    });
+  });
+  document.querySelectorAll('[data-mark-all-seen]').forEach(el=>{
+    el.addEventListener('click', (e)=>{ e.stopPropagation(); markAllSeen(); });
+  });
+  document.querySelectorAll('[data-goto-notif]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const notif = state.notifications.find(n=>n.id===el.dataset.gotoNotif);
+      if(notif) goToNotification(notif);
     });
   });
 }
