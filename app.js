@@ -281,14 +281,28 @@ async function markAllSeen(){
   const meId = state.session.user.id;
   const unseenIds = state.notifications.filter(n=>!n.seen).map(n=>n.id);
   if(!unseenIds.length) return;
-  // update seen_by for each
-  await sb.rpc('mark_comments_seen', { comment_ids: unseenIds, user_id: meId }).then(()=>{});
-  // fallback: update one by one if rpc not available
-  for(const id of unseenIds){
-    const c = state.notifications.find(n=>n.id===id);
-    const newSeen = [...new Set([...(c.seen_by||[]), meId])];
-    await sb.from('comments').update({seen_by: newSeen}).eq('id', id);
+
+  // Try the batch RPC first.
+  let ok = false;
+  try{
+    const { error } = await sb.rpc('mark_comments_seen', { comment_ids: unseenIds, user_id: meId });
+    ok = !error;
+    if(error) console.warn('mark_comments_seen rpc error, falling back', error);
+  }catch(e){ console.warn('mark_comments_seen rpc threw, falling back', e); }
+
+  // Fallback: update each comment individually (only if the RPC failed).
+  if(!ok){
+    const results = await Promise.all(unseenIds.map(id=>{
+      const c = state.notifications.find(n=>n.id===id);
+      const newSeen = [...new Set([...(c.seen_by||[]), meId])];
+      return sb.from('comments').update({seen_by: newSeen}).eq('id', id);
+    }));
+    if(results.some(r=>r.error)){
+      console.error('markAllSeen fallback failed', results.find(r=>r.error));
+      showToast('Certains commentaires n’ont pas pu être marqués comme lus.');
+    }
   }
+
   state.notifications.forEach(n=> n.seen = true);
   render();
 }
@@ -981,21 +995,30 @@ async function duplicatePage(page){
 async function duplicateBlock(block){
   const siblings = siblingBlocks(block.parent_block_id);
   const idx = siblings.findIndex(b=>b.id===block.id);
-  // shift all following blocks up by 1 to make room
   const following = siblings.slice(idx+1);
-  if(following.length){
-    for(const b of following){
-      b.order_index += 1;
-      sb.from('blocks').update({order_index: b.order_index}).eq('id', b.id);
-    }
-  }
   const newOrder = block.order_index + 1;
+
+  // 1) Insert FIRST. Only shift the following blocks once the new block exists,
+  //    otherwise a failed insert would leave order_index values corrupted in DB.
   const { data: newBlock, error } = await sb.from('blocks').insert({
     page_id: block.page_id, type: block.type, content: block.content,
     parent_block_id: block.parent_block_id, order_index: newOrder,
     created_by: state.session.user.id
   }).select().single();
   if(error){ console.error('duplicateBlock error', error); showToast('Erreur de duplication : ' + error.message); return; }
+
+  // 2) Shift following blocks (+1) in parallel, awaiting completion.
+  if(following.length){
+    const results = await Promise.all(following.map(b=>{
+      b.order_index += 1;
+      return sb.from('blocks').update({order_index: b.order_index}).eq('id', b.id);
+    }));
+    if(results.some(r=>r.error)){
+      console.error('duplicateBlock order shift failed', results.find(r=>r.error));
+      showToast('Duplication partielle — rechargez la page si l’ordre semble incorrect.');
+    }
+  }
+
   const globalIdx = state.blocks.findIndex(b=>b.id===block.id);
   state.blocks.splice(globalIdx+1, 0, newBlock);
   showToast('Bloc dupliqué ✓');
@@ -1286,9 +1309,15 @@ async function addBlock(type, parentId, afterBlockId){
   const { data, error } = await sb.from('blocks').insert(row).select().single();
   if(error){ showToast('Impossible d’ajouter ce bloc'); return; }
 
-  // persist shifted siblings (fire and forget, state already updated locally)
-  for(const u of shiftUpdates){
-    sb.from('blocks').update({order_index:u.order_index}).eq('id',u.id);
+  // persist shifted siblings in parallel (await to detect failures)
+  if(shiftUpdates.length){
+    const results = await Promise.all(shiftUpdates.map(u=>
+      sb.from('blocks').update({order_index:u.order_index}).eq('id',u.id)
+    ));
+    if(results.some(r=>r.error)){
+      console.error('addBlock order shift failed', results.find(r=>r.error));
+      showToast('Ordre partiellement sauvegardé — rechargez si l’ordre semble incorrect.');
+    }
   }
 
   state.blocks.push(data);
