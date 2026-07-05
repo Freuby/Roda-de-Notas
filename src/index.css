@@ -1,0 +1,6 @@
+/* @import doit précéder toute autre règle CSS (sinon warning Vite/PostCSS). */
+@import './styles.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
