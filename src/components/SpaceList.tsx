@@ -2,7 +2,7 @@ import { useWorkspace } from '../context/WorkspaceContext';
 import { SPACE_SYMBOLS, SPACE_DOT_COLORS } from '../lib/spaceVisuals';
 
 export function SpaceList() {
-  const { spaces, currentSpaceId, createSpace } = useWorkspace();
+  const { spaces, currentSpaceId, selectSpace, createSpace } = useWorkspace();
 
   const getSpaceVisual = (idx: number) => ({
     symbol: SPACE_SYMBOLS[idx % SPACE_SYMBOLS.length],
@@ -20,6 +20,13 @@ export function SpaceList() {
             key={s.id}
             className={`space-row ${isActive ? 'active' : ''}`}
             title={s.name}
+            onClick={() => selectSpace(s.id)}
+            onDoubleClick={() => {
+              const name = prompt('Renommer cet espace', s.name);
+              if (name?.trim() && name !== s.name) {
+                // TODO: implement renameSpace
+              }
+            }}
           >
             <div className="space-dot" style={{
               background: isActive ? color.border : color.bg,
