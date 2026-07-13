@@ -1,11 +1,11 @@
 import { useWorkspace } from '../context/WorkspaceContext';
-import { SPACE_SYMBOLS, SPACE_DOT_COLORS } from '../lib/spaceVisuals';
+import { SpaceIcons, SPACE_DOT_COLORS } from '../lib/spaceVisuals';
 
 export function SpaceList() {
   const { spaces, currentSpaceId, selectSpace, createSpace } = useWorkspace();
 
   const getSpaceVisual = (idx: number) => ({
-    symbol: SPACE_SYMBOLS[idx % SPACE_SYMBOLS.length],
+    Icon: SpaceIcons[idx % SpaceIcons.length],
     color: SPACE_DOT_COLORS[idx % SPACE_DOT_COLORS.length],
   });
 
@@ -13,7 +13,7 @@ export function SpaceList() {
     <div className="sidebar-section spaces">
       <p className="section-label">Espaces</p>
       {spaces.map((s, idx) => {
-        const { symbol, color } = getSpaceVisual(idx);
+        const { Icon, color } = getSpaceVisual(idx);
         const isActive = s.id === currentSpaceId;
         return (
           <div
@@ -33,7 +33,7 @@ export function SpaceList() {
               color: isActive ? '#fff' : color.fg,
               borderColor: isActive ? color.border : 'transparent',
             }}>
-              {symbol}
+              <Icon width={20} height={20} />
             </div>
             <div className="space-name">{s.name}</div>
           </div>
