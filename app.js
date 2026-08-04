@@ -75,22 +75,6 @@ const root = document.getElementById('root');
 function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function uid(){ return crypto.randomUUID(); }
 
-// Allow only safe URL schemes in href/src attributes. Prevents XSS via
-// "javascript:", "data:", "vbscript:" and other dangerous schemes coming from
-// user-controlled data (song mediaLink, video block url, etc.).
-// Returns a safe URL, or '#' if the input is not a recognized safe scheme.
-function safeUrl(u){
-  if(!u || typeof u !== 'string') return '#';
-  const s = u.trim();
-  if(!s) return '#';
-  // relative URLs (/, ./, ../) and fragments are safe
-  if(s.startsWith('/') || s.startsWith('./') || s.startsWith('../') || s.startsWith('#')) return s;
-  // explicit allow-list of schemes (case-insensitive)
-  if(/^(https?|mailto|tel):/i.test(s)) return s;
-  // anything else (javascript:, data:, vbscript:, etc.) is neutralized
-  return '#';
-}
-
 function showToast(msg){
   let t = document.querySelector('.toast');
   if(!t){ t = document.createElement('div'); t.className='toast'; document.body.appendChild(t); }
@@ -213,67 +197,14 @@ async function loadNotifications(){
   }));
 }
 
-// True when the user is actively typing somewhere (contenteditable or input).
-// Used to avoid background renders that would steal focus / cursor position.
-function isEditing(){
-  const ae = document.activeElement;
-  if(!ae) return false;
-  if(ae.isContentEditable) return true;
-  const tag = ae.tagName;
-  return tag === 'INPUT' || tag === 'TEXTAREA';
-}
-
-// Updates ONLY the notification badge in the sidebar, without a full render.
-// This lets the polling refresh the badge while the user is editing a block
-// (a full render would replace root.innerHTML and kill the caret position).
-function patchNotifBadge(){
-  const unseen = state.notifications.filter(n=>!n.seen).length;
-  const btn = document.querySelector('.notif-btn');
-  if(!btn) return;
-  btn.classList.toggle('has', unseen > 0);
-  let badge = btn.querySelector('.notif-badge');
-  if(unseen > 0){
-    if(!badge){ badge = document.createElement('span'); badge.className='notif-badge'; btn.appendChild(badge); }
-    badge.textContent = unseen;
-  } else if(badge){
-    badge.remove();
-  }
-  // If the notifications panel is open, refresh its list in place too
-  // (preserving scroll), since the user is reading it — not editing a block.
-  const list = document.querySelector('.notif-list');
-  if(list && document.querySelector('.notif-panel')){
-    const scTop = list.scrollTop;
-    const head = document.querySelector('.notif-head');
-    const fresh = document.createElement('div');
-    fresh.innerHTML = renderNotifPanel();
-    const newList = fresh.querySelector('.notif-list');
-    if(newList){ list.innerHTML = newList.innerHTML; list.scrollTop = scTop; }
-    // refresh the head (mark-all-seen link visibility)
-    const newHead = fresh.querySelector('.notif-head');
-    if(head && newHead){ head.innerHTML = newHead.innerHTML; }
-    attachNotifPanelEvents();
-  }
-}
-
 function startNotifPolling(){
   if(state.notifTimer) clearInterval(state.notifTimer);
   state.notifTimer = setInterval(async ()=>{
     const prevUnseen = state.notifications.filter(n=>!n.seen).length;
     await loadNotifications();
     const newUnseen = state.notifications.filter(n=>!n.seen).length;
-    if(newUnseen === prevUnseen) return;            // nothing changed
-    if(isEditing()){
-      patchNotifBadge();                            // targeted update, preserve caret
-    } else if(state.notifPanelOpen){
-      // panel open but user is not typing: refresh it while preserving its scroll
-      const list = document.querySelector('.notif-list');
-      const scTop = list ? list.scrollTop : 0;
-      render();
-      const newList = document.querySelector('.notif-list');
-      if(newList) newList.scrollTop = scTop;
-    } else {
-      render();
-    }
+    if(newUnseen > prevUnseen) render(); // re-render badge
+    else if(newUnseen !== prevUnseen) render();
   }, 30000);
 }
 
@@ -281,28 +212,14 @@ async function markAllSeen(){
   const meId = state.session.user.id;
   const unseenIds = state.notifications.filter(n=>!n.seen).map(n=>n.id);
   if(!unseenIds.length) return;
-
-  // Try the batch RPC first.
-  let ok = false;
-  try{
-    const { error } = await sb.rpc('mark_comments_seen', { comment_ids: unseenIds, user_id: meId });
-    ok = !error;
-    if(error) console.warn('mark_comments_seen rpc error, falling back', error);
-  }catch(e){ console.warn('mark_comments_seen rpc threw, falling back', e); }
-
-  // Fallback: update each comment individually (only if the RPC failed).
-  if(!ok){
-    const results = await Promise.all(unseenIds.map(id=>{
-      const c = state.notifications.find(n=>n.id===id);
-      const newSeen = [...new Set([...(c.seen_by||[]), meId])];
-      return sb.from('comments').update({seen_by: newSeen}).eq('id', id);
-    }));
-    if(results.some(r=>r.error)){
-      console.error('markAllSeen fallback failed', results.find(r=>r.error));
-      showToast('Certains commentaires n’ont pas pu être marqués comme lus.');
-    }
+  // update seen_by for each
+  await sb.rpc('mark_comments_seen', { comment_ids: unseenIds, user_id: meId }).then(()=>{});
+  // fallback: update one by one if rpc not available
+  for(const id of unseenIds){
+    const c = state.notifications.find(n=>n.id===id);
+    const newSeen = [...new Set([...(c.seen_by||[]), meId])];
+    await sb.from('comments').update({seen_by: newSeen}).eq('id', id);
   }
-
   state.notifications.forEach(n=> n.seen = true);
   render();
 }
@@ -697,7 +614,7 @@ function renderRepertoirePage(){
               </div>
               ${isOpen ? `<div class="repertoire-song-details">
                 ${s.lyrics ? `<pre class="repertoire-song-lyrics">${esc(s.lyrics)}</pre>` : '<p class="repertoire-no-lyrics">Paroles non renseignées.</p>'}
-                ${s.mediaLink ? `<a href="${esc(safeUrl(s.mediaLink))}" target="_blank" rel="noopener" class="repertoire-song-link">↗ Écouter / Voir la vidéo</a>` : ''}
+                ${s.mediaLink ? `<a href="${esc(s.mediaLink)}" target="_blank" rel="noopener" class="repertoire-song-link">↗ Écouter / Voir la vidéo</a>` : ''}
               </div>` : ''}
             </div>`;
           }).join('')}
@@ -995,30 +912,21 @@ async function duplicatePage(page){
 async function duplicateBlock(block){
   const siblings = siblingBlocks(block.parent_block_id);
   const idx = siblings.findIndex(b=>b.id===block.id);
+  // shift all following blocks up by 1 to make room
   const following = siblings.slice(idx+1);
+  if(following.length){
+    for(const b of following){
+      b.order_index += 1;
+      sb.from('blocks').update({order_index: b.order_index}).eq('id', b.id);
+    }
+  }
   const newOrder = block.order_index + 1;
-
-  // 1) Insert FIRST. Only shift the following blocks once the new block exists,
-  //    otherwise a failed insert would leave order_index values corrupted in DB.
   const { data: newBlock, error } = await sb.from('blocks').insert({
     page_id: block.page_id, type: block.type, content: block.content,
     parent_block_id: block.parent_block_id, order_index: newOrder,
     created_by: state.session.user.id
   }).select().single();
   if(error){ console.error('duplicateBlock error', error); showToast('Erreur de duplication : ' + error.message); return; }
-
-  // 2) Shift following blocks (+1) in parallel, awaiting completion.
-  if(following.length){
-    const results = await Promise.all(following.map(b=>{
-      b.order_index += 1;
-      return sb.from('blocks').update({order_index: b.order_index}).eq('id', b.id);
-    }));
-    if(results.some(r=>r.error)){
-      console.error('duplicateBlock order shift failed', results.find(r=>r.error));
-      showToast('Duplication partielle — rechargez la page si l’ordre semble incorrect.');
-    }
-  }
-
   const globalIdx = state.blocks.findIndex(b=>b.id===block.id);
   state.blocks.splice(globalIdx+1, 0, newBlock);
   showToast('Bloc dupliqué ✓');
@@ -1087,14 +995,14 @@ function buildArchiveHtml(space, pages, blocks){
       case 'numbered': inner = `<div style="margin:2px 0;padding-left:${indent}px;">${esc(c.text||'')}</div>`; break;
       case 'callout': inner = `<div style="background:#F6E8C8;border-radius:8px;padding:10px 14px;margin:8px 0;white-space:pre-wrap;">${esc(c.emoji||'💡')} ${esc(c.text||'')}</div>`; break;
       case 'divider': inner = `<hr style="border:none;border-top:1px dashed #ccc;margin:14px 0;">`; break;
-      case 'video': inner = c.url ? `<p style="margin:6px 0;">🎬 <a href="${esc(safeUrl(c.url))}" target="_blank">${esc(c.url)}</a>${c.caption?` — <em>${esc(c.caption)}</em>`:''}</p>` : '';
+      case 'video': inner = c.url ? `<p style="margin:6px 0;">🎬 <a href="${esc(c.url)}" target="_blank">${esc(c.url)}</a>${c.caption?` — <em>${esc(c.caption)}</em>`:''}</p>` : '';
         break;
       case 'song':
         inner = `<div style="border:1px solid #C1502E;border-radius:8px;padding:10px 14px;margin:8px 0;">
           <strong>♪ ${esc(c.title||'Sans titre')}</strong>${c.category?` <span style="font-size:11px;color:#C1502E;">(${esc(SONG_CATEGORIES[c.category]||c.category)})</span>`:''}
           ${c.lyrics?`<div style="white-space:pre-wrap;margin-top:6px;font-size:13.5px;">${esc(c.lyrics)}</div>`:''}
           ${c.mnemonic?`<div style="margin-top:6px;font-style:italic;color:#2F6F4F;font-size:12.5px;">💭 ${esc(c.mnemonic)}</div>`:''}
-          ${c.mediaLink?`<p style="margin-top:6px;"><a href="${esc(safeUrl(c.mediaLink))}" target="_blank">🔗 Écouter / regarder</a></p>`:''}
+          ${c.mediaLink?`<p style="margin-top:6px;"><a href="${esc(c.mediaLink)}" target="_blank">🔗 Écouter / regarder</a></p>`:''}
         </div>`;
         break;
       case 'toggle':
@@ -1309,15 +1217,9 @@ async function addBlock(type, parentId, afterBlockId){
   const { data, error } = await sb.from('blocks').insert(row).select().single();
   if(error){ showToast('Impossible d’ajouter ce bloc'); return; }
 
-  // persist shifted siblings in parallel (await to detect failures)
-  if(shiftUpdates.length){
-    const results = await Promise.all(shiftUpdates.map(u=>
-      sb.from('blocks').update({order_index:u.order_index}).eq('id',u.id)
-    ));
-    if(results.some(r=>r.error)){
-      console.error('addBlock order shift failed', results.find(r=>r.error));
-      showToast('Ordre partiellement sauvegardé — rechargez si l’ordre semble incorrect.');
-    }
+  // persist shifted siblings (fire and forget, state already updated locally)
+  for(const u of shiftUpdates){
+    sb.from('blocks').update({order_index:u.order_index}).eq('id',u.id);
   }
 
   state.blocks.push(data);
@@ -2134,7 +2036,7 @@ function renderSongBlock(block, c, locked){
     <div class="song-body ${isOpen?'open':''}">
       ${c.lyrics ? `<div class="song-lyrics">${esc(c.lyrics)}</div>` : `<p style="color:var(--muted); font-size:13px;">Pas de paroles enregistrées.</p>`}
       ${c.mnemonic ? `<div class="song-mnemonic">💭 ${esc(c.mnemonic)}</div>` : ''}
-      ${c.mediaLink ? `<p style="margin-top:8px;"><a href="${esc(safeUrl(c.mediaLink))}" target="_blank" rel="noopener" style="color:var(--terracotta); font-size:13px;">🔗 Écouter / regarder</a></p>` : ''}
+      ${c.mediaLink ? `<p style="margin-top:8px;"><a href="${esc(c.mediaLink)}" target="_blank" rel="noopener" style="color:var(--terracotta); font-size:13px;">🔗 Écouter / regarder</a></p>` : ''}
     </div>
   </div>`;
 }
@@ -2297,43 +2199,58 @@ function attachAppEvents(){
   }
 
   // prerequisites panel toggle and chips
-  // mobile: show block controls only on tapped block
+  // mobile: show block controls only on tapped block — no render(), direct DOM only
   if(window.matchMedia('(max-width:560px)').matches){
     let touchStartY = 0;
+
+    function activateBlock(id){
+      document.querySelectorAll('.block-controls-active').forEach(el=>el.classList.remove('block-controls-active'));
+      // remove editing from previously active block's contenteditable
+      if(state.activeBlockId && state.activeBlockId !== id){
+        const prevEl = document.querySelector(`[data-block-id="${state.activeBlockId}"]`);
+        prevEl?.querySelectorAll('[contenteditable="true"]').forEach(ce=>ce.blur());
+      }
+      state.activeBlockId = id;
+      if(id){
+        const blockEl = document.querySelector(`[data-block-id="${id}"]`);
+        const controls = blockEl?.querySelector('.block-controls');
+        if(controls) controls.classList.add('block-controls-active');
+      }
+    }
+
     document.querySelectorAll('[data-block-id]').forEach(el=>{
       el.addEventListener('touchstart', (e)=>{
         touchStartY = e.touches[0].clientY;
       }, {passive:true});
+
       el.addEventListener('touchend', (e)=>{
-        // ignore if user scrolled more than 8px — it's a scroll not a tap
         if(Math.abs(e.changedTouches[0].clientY - touchStartY) > 8) return;
-        // ignore taps on control buttons themselves (let them fire normally)
         if(e.target.closest('.block-controls')) return;
+
         const id = el.dataset.blockId;
-        if(state.activeBlockId === id){
-          state.activeBlockId = null;
-        } else {
-          state.activeBlockId = id;
+        const isAlreadyActive = state.activeBlockId === id;
+
+        if(!isAlreadyActive){
+          // First tap: activate block (show controls) but prevent focus/keyboard
+          e.preventDefault();
+          activateBlock(id);
         }
-        // preserve scroll position across render
-        // NOTE: capture scrollTop before render(), then re-query .main AFTER,
-        // because render() replaces root.innerHTML and detaches the old element.
-        const mainElBefore = document.querySelector('.main');
-        const scrollTop = mainElBefore ? mainElBefore.scrollTop : 0;
-        render();
-        const mainElAfter = document.querySelector('.main');
-        if(mainElAfter) mainElAfter.scrollTop = scrollTop;
-      }, {passive:true});
+        // Second tap on already-active block: let browser handle normally (focus + keyboard)
+      });
+
+      // Prevent contenteditable from focusing on first tap (before block is active)
+      el.querySelectorAll('[contenteditable="true"]').forEach(ce=>{
+        ce.addEventListener('touchstart', (e)=>{
+          if(state.activeBlockId !== el.dataset.blockId){
+            e.preventDefault(); // block focus until block is selected
+          }
+        }, {passive:false});
+      });
     });
-    // tap on empty area clears active block
+
     document.querySelector('.main')?.addEventListener('touchend', (e)=>{
       if(!e.target.closest('[data-block-id]') && state.activeBlockId){
-        const mainBefore = document.querySelector('.main');
-        const scTop = mainBefore ? mainBefore.scrollTop : 0;
-        state.activeBlockId = null;
-        render();
-        const mainAfter = document.querySelector('.main');
-        if(mainAfter) mainAfter.scrollTop = scTop;
+        activateBlock(null);
       }
     }, {passive:true});
   }
@@ -2555,7 +2472,22 @@ function attachAppEvents(){
   if(so) so.addEventListener('click', doSignOut);
 
   // notifications
-  attachNotifPanelEvents();
+  document.querySelectorAll('[data-notif-panel]').forEach(el=>{
+    el.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      state.notifPanelOpen = !state.notifPanelOpen;
+      render();
+    });
+  });
+  document.querySelectorAll('[data-mark-all-seen]').forEach(el=>{
+    el.addEventListener('click', (e)=>{ e.stopPropagation(); markAllSeen(); });
+  });
+  document.querySelectorAll('[data-goto-notif]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const notif = state.notifications.find(n=>n.id===el.dataset.gotoNotif);
+      if(notif) goToNotification(notif);
+    });
+  });
 
   // add root block
   document.querySelectorAll('[data-add-root]').forEach(el=>{
@@ -2671,28 +2603,6 @@ function attachAppEvents(){
       const [blockId, commentId] = el.dataset.deleteComment.split('|');
       const c = (state.comments[blockId]||[]).find(x=>x.id===commentId);
       if(c) deleteComment(blockId, c);
-    });
-  });
-}
-
-// Events for the notifications panel (bell toggle, "mark all seen", click a notif).
-// Extracted from attachAppEvents() so patchNotifBadge() can re-attach them after
-// a targeted DOM update of the panel list without a full render.
-function attachNotifPanelEvents(){
-  document.querySelectorAll('[data-notif-panel]').forEach(el=>{
-    el.addEventListener('click', (e)=>{
-      e.stopPropagation();
-      state.notifPanelOpen = !state.notifPanelOpen;
-      render();
-    });
-  });
-  document.querySelectorAll('[data-mark-all-seen]').forEach(el=>{
-    el.addEventListener('click', (e)=>{ e.stopPropagation(); markAllSeen(); });
-  });
-  document.querySelectorAll('[data-goto-notif]').forEach(el=>{
-    el.addEventListener('click', ()=>{
-      const notif = state.notifications.find(n=>n.id===el.dataset.gotoNotif);
-      if(notif) goToNotification(notif);
     });
   });
 }
