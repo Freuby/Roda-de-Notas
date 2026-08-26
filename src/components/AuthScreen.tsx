@@ -17,26 +17,6 @@ export const AuthScreen: React.FC = () => {
 
     try {
       if (authMode === 'signup') {
-        const<dyad-write path="src/components/AuthScreen.tsx" description="Authentication component for login and teacher sign up">
-import React, { useState } from 'react';
-import { supabase } from '../lib/supabase';
-
-export const AuthScreen: React.FC = () => {
-  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [authError, setAuthError] = useState('');
-  const [busy, setBusy] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setBusy(true);
-    setAuthError('');
-
-    try {
-      if (authMode === 'signup') {
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
