@@ -1,0 +1,62 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #F5F0E6;
+  --surface: #FFFFFF;
+  --ink: #1A3C2F;
+  --muted: #7A7A7A;
+  --terracotta: #FF6B00;
+  --terracotta-soft: #FFE3CC;
+  --green: #1A3C2F;
+  --green-light: #2E6B52;
+  --green-soft: #DCEFE6;
+  --ochre: #FFB300;
+  --ochre-soft: #FFF3D6;
+  --leaf: #00C853;
+  --border: #E3DCC9;
+  --radius: 12px;
+  --radius-card: 16px;
+  --sidebar-width: 280px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  height: 100%;
+  min-height: 100%;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, .font-display {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 700;
+}
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-spin-slow {
+  animation: spin-slow 22s linear infinite;
+}
+
+.search-highlight {
+  animation: search-pulse 2.2s ease;
+}
+
+@keyframes search-pulse {
+  0% { background: var(--ochre-soft); }
+  100% { background: transparent; }
+}
