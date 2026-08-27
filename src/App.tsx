@@ -1,6 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { supabase } from './<dyad-write path="src/App.tsx" description="Complete and clean rewrite of App component">
-import React, { useEffect, useState } from 'react';
 import { supabase } from './lib/supabase';
 import { AuthScreen } from './components/AuthScreen';
 import { Space, Page, Block, Profile, Song, Prerequisite, BlockType } from './types';
@@ -58,7 +56,48 @@ export const App: React.FC = () => {
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase<dyad-write path="src/App.tsx" description="Complete and clean rewrite of App component">
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setLoading(false);
+    });
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      setSession(newSession);
+      setLoading(false);
+    });
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (session) {
+      loadProfiles();
+      loadSpaces();
+      loadPrerequisites();
+      loadSongs();
+    }
+  }, [session]);
+
+  useEffect(() => {
+    if (currentSpaceId) {
+      loadPages(currentSpaceId);
+    }
+  }, [currentSpaceId]);
+
+  useEffect(() => {
+    if (currentPageId && currentPageId !== '__repertoire__') {
+      loadBlocks(currentPageId);
+      loadPagePrerequisites(currentPageId);
+    }
+  }, [currentPageId]);
+
+  const loadProfiles = async () => {
+    const { data } = await supabase.from('profiles').select('id, first_name, last_name, email');
+    if (data) {
+      const map: Record<string, Profile> = {};
+      data.forEach((<dyad-write path="src/App.tsx" description="Complete and clean implementation of App component">
 import React, { useEffect, useState } from 'react';
 import { supabase } from './lib/supabase';
 import { AuthScreen } from './components/AuthScreen';
@@ -158,7 +197,9 @@ export const App: React.FC = () => {
     const { data } = await supabase.from('profiles').select('id, first_name, last_name, email');
     if (data) {
       const map: Record<string, Profile> = {};
-      data.forEach((p) => (map[p.id] = p));
+      data.forEach((p) => {
+        map[p.id] = p;
+      });
       setProfiles(map);
     }
   };
@@ -277,7 +318,321 @@ export const App: React.FC = () => {
     if (data) setAllSongs(data);
   };
 
-  // Mutators
+  const handleCreateSpace = async () => {
+    const name = prompt('Nom du nouvel espace (ex : Année 2026-2027)');
+    if (!name || !name.trim()) return;
+    const maxOrder = spaces.reduce((m, s) => Math.max(m, s.order_index || 0), -1);
+    const { data } = await supabase
+      .from('spaces')
+      .insert({ name: name.trim(), created_by: session.user.id, order_index: maxOrder + 1 })
+      .select()
+      .single();
+    if (data) {
+      setSpaces([...spaces, data]);
+      setCurrentSpaceId(data.id);
+      setCurrentPageId(null);
+    }
+  };
+
+  const handleCreatePage = async () => {
+    if (!currentSpaceId) return;
+    const maxOrder = pages.reduce((m, p) => Math.max(m, p.order_index || 0), -1);
+    const { data } = await supabase
+      .from('pages')
+      .insert({
+        space_id: currentSpaceId,
+        title: 'Nouveau cours',
+        created_by: session.user.id,
+        order_index: maxOrder + 1,
+      })
+      .select()
+      .single();
+    if (data) {
+      setPages([...pages, data]);
+      setCurrentPageId(data.id);
+    }
+  };
+
+  const handleUpdatePageTitle = async (title: string) => {
+    if (!currentPageId || currentPageId === '__repertoire__') return;
+    setPages(pages.map((p) => (p.id === currentPageId ? { ...p, title } : p)));
+    await supabase.from('pages').update({ title }).eq('id', currentPageId);
+  };
+
+  const handleToggleLock = async () => {
+    const page = pages.find((p) => p.id === currentPageId);
+    if (!page) return;
+    const nextLocked = !page.locked;
+    setPages(pages.map((p) => (p.id === page.id ? { ...p, locked: nextLocked } : p)));
+    await supabase.from('pages').update({ locked: nextLocked }).eq('id', page.id);
+  };
+
+  const handleAddBlock = async (type: BlockType, parentBlockId: string | null = null) => {
+    if (!currentPageId || currentPageId === '__repertoire__') return;
+    const siblings = blocks.filter((b) => (b.parent_block_id || null) === (parentBlockId || null));
+    const maxOrder = siblings.reduce((m, b) => Math.max(m, b.order_index || 0), -1);
+
+    let content: any = { text: '' };
+    if (type === 'callout') content = { text: '', emoji: '💡' };
+    if (type === 'video') content = { url: '', caption: '' };
+    if (type === 'song') content = {};
+
+    const { data } = await supabase
+      .from('blocks')
+      .insert({
+        page_id: currentPageId,
+        type,
+        content,
+        parent_block_id: parentBlockId,
+        order_index: maxOrder + 1,
+        created_by: session.user.id,
+      })
+      .select()
+      .single();
+
+    if (data) {
+      setBlocks([...blocks, data]);
+      if (type === 'song') {
+        setSongPickerBlockId(data.id);
+      }
+      if (type === 'toggle') {
+        setOpenToggles((prev) => new Set([...prev, data.id]));
+      }
+    }
+  };
+
+  const handleUpdateBlockContent = async (block: Block, patch: any) => {
+    const nextContent = { ...block.content, ...patch };
+    const now = new Date().toISOString();
+    setBlocks(
+      blocks.map((b) =>
+        b.id === block.id
+          ? { ...b, content: nextContent, updated_at: now, updated_by: session.user.id }
+          : b
+      )
+    );
+    await supabase
+      <dyad-write path="src/App.tsx" description="Complete implementation of App component">
+import React, { useEffect, useState } from 'react';
+import { supabase } from './lib/supabase';
+import { AuthScreen } from './components/AuthScreen';
+import { Space, Page, Block, Profile, Song, Prerequisite, BlockType } from './types';
+import {
+  Search,
+  Menu,
+  Plus,
+  Lock,
+  Unlock,
+  LogOut,
+  Music,
+  Send,
+} from 'lucide-react';
+import { fmtDate } from './lib/utils';
+import { SPACE_ICONS } from './components/Icons';
+import { PrerequisitesBar } from './components/PrerequisitesBar';
+import { RepertoireView } from './components/RepertoireView';
+import { SongPickerModal } from './components/SongPickerModal';
+import { EmojiPickerModal } from './components/EmojiPickerModal';
+import { GlobalSearchModal } from './components/GlobalSearchModal';
+import { BlockItem } from './components/BlockItem';
+
+export const App: React.FC = () => {
+  const [session, setSession] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Spaces & Pages
+  const [spaces, setSpaces] = useState<Space[]>([]);
+  const [currentSpaceId, setCurrentSpaceId] = useState<string | null>(null);
+  const [pages, setPages] = useState<Page[]>([]);
+  const [currentPageId, setCurrentPageId] = useState<string | null>(null);
+  const [blocks, setBlocks] = useState<Block[]>([]);
+  const [profiles, setProfiles] = useState<Record<string, Profile>>({});
+
+  // Prerequisites
+  const [allPrerequisites, setAllPrerequisites] = useState<Prerequisite[]>([]);
+  const [pagePrereqIds, setPagePrereqIds] = useState<Set<string>>(new Set());
+  const [spacePrereqCounts, setSpacePrereqCounts] = useState<Record<string, number>>({});
+  const [spaceCoverage, setSpaceCoverage] = useState<Record<string, { '2': number; '3': number; '4': number }>>({});
+
+  // Songs
+  const [allSongs, setAllSongs] = useState<Song[]>([]);
+  const [songPickerBlockId, setSongPickerBlockId] = useState<string | null>(null);
+
+  // Comments & Toggles
+  const [commentsMap, setCommentsMap] = useState<Record<string, any[]>>({});
+  const [openCommentBlockId, setOpenCommentBlockId] = useState<string | null>(null);
+  const [openToggles, setOpenToggles] = useState<Set<string>>(new Set());
+  const [commentInput, setCommentInput] = useState('');
+
+  // Modals & UI
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [emojiPickerBlockId, setEmojiPickerBlockId] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setLoading(false);
+    });
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      setSession(newSession);
+      setLoading(false);
+    });
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (session) {
+      loadProfiles();
+      loadSpaces();
+      loadPrerequisites();
+      loadSongs();
+    }
+  }, [session]);
+
+  useEffect(() => {
+    if (currentSpaceId) {
+      loadPages(currentSpaceId);
+    }
+  }, [currentSpaceId]);
+
+  useEffect(() => {
+    if (currentPageId && currentPageId !== '__repertoire__') {
+      loadBlocks(currentPageId);
+      loadPagePrerequisites(currentPageId);
+    }
+  }, [currentPageId]);
+
+  const loadProfiles = async () => {
+    const { data } = await supabase.from('profiles').select('id, first_name, last_name, email');
+    if (data) {
+      const map: Record<string, Profile> = {};
+      data.forEach((p) => {
+        map[p.id] = p;
+      });
+      setProfiles(map);
+    }
+  };
+
+  const loadSpaces = async () => {
+    const { data } = await supabase
+      .from('spaces')
+      .select('*')
+      .order('order_index', { ascending: true })
+      .order('created_at', { ascending: true });
+    if (data && data.length > 0) {
+      setSpaces(data);
+      if (!currentSpaceId) {
+        setCurrentSpaceId(data[0].id);
+      }
+    }
+  };
+
+  const loadPages = async (spaceId: string) => {
+    const { data } = await supabase
+      .from('pages')
+      .select('*')
+      .eq('space_id', spaceId)
+      .order('order_index', { ascending: true })
+      .order('created_at', { ascending: true });
+    if (data) {
+      setPages(data);
+      if (data.length > 0 && !currentPageId) {
+        setCurrentPageId(data[0].id);
+      }
+      loadSpaceCoverage(spaceId, data);
+    }
+  };
+
+  const loadBlocks = async (pageId: string) => {
+    const { data } = await supabase
+      .from('blocks')
+      .select('*')
+      .eq('page_id', pageId)
+      .order('order_index', { ascending: true });
+    if (data) {
+      setBlocks(data);
+      loadComments(data.map((b) => b.id));
+    }
+  };
+
+  const loadComments = async (blockIds: string[]) => {
+    if (!blockIds.length) return;
+    const { data } = await supabase
+      .from('comments')
+      .select('*')
+      .in('block_id', blockIds)
+      .order('created_at', { ascending: true });
+    if (data) {
+      const map: Record<string, any[]> = {};
+      data.forEach((c) => {
+        if (!map[c.block_id]) map[c.block_id] = [];
+        map[c.block_id].push(c);
+      });
+      setCommentsMap(map);
+    }
+  };
+
+  const loadPrerequisites = async () => {
+    const { data } = await supabase
+      .from('prerequisites')
+      .select('*')
+      .order('corde', { ascending: true })
+      .order('category', { ascending: true })
+      .order('order_index', { ascending: true });
+    if (data) setAllPrerequisites(data);
+  };
+
+  const loadPagePrerequisites = async (pageId: string) => {
+    const { data } = await supabase
+      .from('page_prerequisites')
+      .select('prerequisite_id')
+      .eq('page_id', pageId);
+    if (data) {
+      setPagePrereqIds(new Set(data.map((d) => d.prerequisite_id)));
+    }
+  };
+
+  const loadSpaceCoverage = async (spaceId: string, spacePages: Page[]) => {
+    const pageIds = spacePages.map((p) => p.id);
+    if (!pageIds.length) return;
+
+    const { data } = await supabase
+      .from('page_prerequisites')
+      .select('prerequisite_id')
+      .in('page_id', pageIds);
+
+    if (data) {
+      const counts: Record<string, number> = {};
+      const covered = new Set<string>();
+      data.forEach((r) => {
+        counts[r.prerequisite_id] = (counts[r.prerequisite_id] || 0) + 1;
+        covered.add(r.prerequisite_id);
+      });
+      setSpacePrereqCounts(counts);
+
+      if (allPrerequisites.length > 0) {
+        const cov: any = {};
+        (['2', '3', '4'] as const).forEach((corde) => {
+          const items = allPrerequisites.filter((p) => p.corde === corde);
+          const done = items.filter((p) => covered.has(p.id)).length;
+          cov[corde] = items.length ? Math.round((done / items.length) * 100) : 0;
+        });
+        setSpaceCoverage((prev) => ({ ...prev, [spaceId]: cov }));
+      }
+    }
+  };
+
+  const loadSongs = async () => {
+    const { data } = await supabase.from('songs').select('*').order('title', { ascending: true });
+    if (data) setAllSongs(data);
+  };
+
   const handleCreateSpace = async () => {
     const name = prompt('Nom du nouvel espace (ex : Année 2026-2027)');
     if (!name || !name.trim()) return;
