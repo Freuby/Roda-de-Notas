@@ -33,7 +33,7 @@ html, body {
 
 body {
   font-family: 'Inter', sans-serif;
-  background: var(--bg);
+  background-color: var(--bg);
   color: var(--ink);
   -webkit-font-smoothing: antialiased;
 }
@@ -43,20 +43,15 @@ h1, h2, h3, .font-display {
   font-weight: 700;
 }
 
-@keyframes spin-slow {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-.animate-spin-slow {
-  animation: spin-slow 22s linear infinite;
-}
-
 .search-highlight {
   animation: search-pulse 2.2s ease;
 }
 
 @keyframes search-pulse {
-  0% { background: var(--ochre-soft); }
-  100% { background: transparent; }
+  0% {
+    background-color: var(--ochre-soft);
+  }
+  100% {
+    background-color: transparent;
+  }
 }
