@@ -97,106 +97,6 @@ export const App: React.FC = () => {
     const { data } = await supabase.from('profiles').select('id, first_name, last_name, email');
     if (data) {
       const map: Record<string, Profile> = {};
-      data.forEach((<dyad-write path="src/App.tsx" description="Complete and clean implementation of App component">
-import React, { useEffect, useState } from 'react';
-import { supabase } from './lib/supabase';
-import { AuthScreen } from './components/AuthScreen';
-import { Space, Page, Block, Profile, Song, Prerequisite, BlockType } from './types';
-import {
-  Search,
-  Menu,
-  Plus,
-  Lock,
-  Unlock,
-  LogOut,
-  Music,
-  Send,
-} from 'lucide-react';
-import { fmtDate } from './lib/utils';
-import { SPACE_ICONS } from './components/Icons';
-import { PrerequisitesBar } from './components/PrerequisitesBar';
-import { RepertoireView } from './components/RepertoireView';
-import { SongPickerModal } from './components/SongPickerModal';
-import { EmojiPickerModal } from './components/EmojiPickerModal';
-import { GlobalSearchModal } from './components/GlobalSearchModal';
-import { BlockItem } from './components/BlockItem';
-
-export const App: React.FC = () => {
-  const [session, setSession] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-
-  // Spaces & Pages
-  const [spaces, setSpaces] = useState<Space[]>([]);
-  const [currentSpaceId, setCurrentSpaceId] = useState<string | null>(null);
-  const [pages, setPages] = useState<Page[]>([]);
-  const [currentPageId, setCurrentPageId] = useState<string | null>(null);
-  const [blocks, setBlocks] = useState<Block[]>([]);
-  const [profiles, setProfiles] = useState<Record<string, Profile>>({});
-
-  // Prerequisites
-  const [allPrerequisites, setAllPrerequisites] = useState<Prerequisite[]>([]);
-  const [pagePrereqIds, setPagePrereqIds] = useState<Set<string>>(new Set());
-  const [spacePrereqCounts, setSpacePrereqCounts] = useState<Record<string, number>>({});
-  const [spaceCoverage, setSpaceCoverage] = useState<Record<string, { '2': number; '3': number; '4': number }>>({});
-
-  // Songs
-  const [allSongs, setAllSongs] = useState<Song[]>([]);
-  const [songPickerBlockId, setSongPickerBlockId] = useState<string | null>(null);
-
-  // Comments & Toggles
-  const [commentsMap, setCommentsMap] = useState<Record<string, any[]>>({});
-  const [openCommentBlockId, setOpenCommentBlockId] = useState<string | null>(null);
-  const [openToggles, setOpenToggles] = useState<Set<string>>(new Set());
-  const [commentInput, setCommentInput] = useState('');
-
-  // Modals & UI
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [emojiPickerBlockId, setEmojiPickerBlockId] = useState<string | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setLoading(false);
-    });
-
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      setSession(newSession);
-      setLoading(false);
-    });
-
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (session) {
-      loadProfiles();
-      loadSpaces();
-      loadPrerequisites();
-      loadSongs();
-    }
-  }, [session]);
-
-  useEffect(() => {
-    if (currentSpaceId) {
-      loadPages(currentSpaceId);
-    }
-  }, [currentSpaceId]);
-
-  useEffect(() => {
-    if (currentPageId && currentPageId !== '__repertoire__') {
-      loadBlocks(currentPageId);
-      loadPagePrerequisites(currentPageId);
-    }
-  }, [currentPageId]);
-
-  const loadProfiles = async () => {
-    const { data } = await supabase.from('profiles').select('id, first_name, last_name, email');
-    if (data) {
-      const map: Record<string, Profile> = {};
       data.forEach((p) => {
         map[p.id] = p;
       });
@@ -412,7 +312,39 @@ export const App: React.FC = () => {
       )
     );
     await supabase
-      <dyad-write path="src/App.tsx" description="Complete implementation of App component">
+      .from('blocks')
+      .update({ content: nextContent, updated_at: now, updated_by: session.user.id })
+      .eq('id', block.id);
+  };
+
+  const handleChangeBlockType = async (block: Block, type: BlockType) => {
+    let newContent: any = { text: block.content?.text || '' };
+    if (type === 'callout') newContent = { text: block.content?.text || '', emoji: '💡' };
+    if (type === 'video') newContent = { url: block.content?.url || '', caption: '' };
+    if (type === 'song') newContent = {};
+
+    setBlocks(blocks.map((b) => (b.id === block.id ? { ...b, type, content: newContent } : b)));
+    await supabase.from('blocks').update({ type, content: newContent }).eq('id', block.id);
+    if (type === 'song') {
+      setSongPickerBlockId(block.id);
+    }
+  };
+
+  const handleDuplicateBlock = async (block: Block) => {
+    const { data } = await supabase
+      .from('blocks')
+      .insert({
+        page_id: block.page_id,
+        type: block.type,
+        content: block.content,
+        parent_block_id: block.parent_block_id,
+        order_index: block.order_index + 1,
+        created_by: session.user.id,
+      })
+      .select()
+      .single();
+    if (data) {
+      setBlocks([...blocks, data]);<dyad-write path="src/App.tsx" description="Complete implementation of App component">
 import React, { useEffect, useState } from 'react';
 import { supabase } from './lib/supabase';
 import { AuthScreen } from './components/AuthScreen';
