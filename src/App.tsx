@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import { supabase } from './<dyad-write path="src/App.tsx" description="Complete and clean rewrite of App component">
+import React, { useEffect, useState } from 'react';
 import { supabase } from './lib/supabase';
 import { AuthScreen } from './components/AuthScreen';
 import { Space, Page, Block, Profile, Song, Prerequisite, BlockType } from './types';
@@ -9,15 +11,11 @@ import {
   Lock,
   Unlock,
   LogOut,
-  MessageSquare,
   Music,
-  Copy,
-  Trash2,
   Send,
-  X,
 } from 'lucide-react';
 import { fmtDate } from './lib/utils';
-import { BerimbauIcon, SPACE_ICONS } from './components/Icons';
+import { SPACE_ICONS } from './components/Icons';
 import { PrerequisitesBar } from './components/PrerequisitesBar';
 import { RepertoireView } from './components/RepertoireView';
 import { SongPickerModal } from './components/SongPickerModal';
@@ -45,7 +43,22 @@ export const App: React.FC = () => {
 
   // Songs
   const [allSongs, setAllSongs] = useState<Song[]>([]);
-  const<dyad-write path="src/App.tsx" description="Main application component integrating spaces, pages, rich blocks editing, prerequisites, songs, search and comments">
+  const [songPickerBlockId, setSongPickerBlockId] = useState<string | null>(null);
+
+  // Comments & Toggles
+  const [commentsMap, setCommentsMap] = useState<Record<string, any[]>>({});
+  const [openCommentBlockId, setOpenCommentBlockId] = useState<string | null>(null);
+  const [openToggles, setOpenToggles] = useState<Set<string>>(new Set());
+  const [commentInput, setCommentInput] = useState('');
+
+  // Modals & UI
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [emojiPickerBlockId, setEmojiPickerBlockId] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase<dyad-write path="src/App.tsx" description="Complete and clean rewrite of App component">
 import React, { useEffect, useState } from 'react';
 import { supabase } from './lib/supabase';
 import { AuthScreen } from './components/AuthScreen';
@@ -57,16 +70,11 @@ import {
   Lock,
   Unlock,
   LogOut,
-  MessageSquare,
   Music,
-  Copy,
-  Trash2,
   Send,
-  X,
-  Smile,
 } from 'lucide-react';
 import { fmtDate } from './lib/utils';
-import { BerimbauIcon, SPACE_ICONS } from './components/Icons';
+import { SPACE_ICONS } from './components/Icons';
 import { PrerequisitesBar } from './components/PrerequisitesBar';
 import { RepertoireView } from './components/RepertoireView';
 import { SongPickerModal } from './components/SongPickerModal';

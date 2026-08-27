@@ -55,64 +55,6 @@ export const RepertoireView: React.FC<RepertoireViewProps> = ({ spaceName, pages
         };
       }
       if (page && !byId[sid].pages.includes(page.title)) {
-        byId[sid].pages.<dyad-write path="src/components/RepertoireView.tsx" description="Complete repertoire view grouping all songs used across pages in current space">
-import React, { useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
-import { Page, Song } from '../types';
-import { SONG_CATEGORIES } from '../lib/utils';
-import { ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
-
-interface RepertoireViewProps {
-  spaceName: string;
-  pages: Page[];
-}
-
-export const RepertoireView: React.FC<RepertoireViewProps> = ({ spaceName, pages }) => {
-  const [loading, setLoading] = useState(true);
-  const [entries, setEntries] = useState<{ song: Partial<Song>; pages: string[] }[]>([]);
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    loadSongs();
-  }, [pages]);
-
-  const loadSongs = async () => {
-    setLoading(true);
-    const pageIds = pages.map((p) => p.id);
-    if (!pageIds.length) {
-      setEntries([]);
-      setLoading(false);
-      return;
-    }
-
-    const { data: songBlocks } = await supabase
-      .from('blocks')
-      .select('id, page_id, content')
-      .in('page_id', pageIds)
-      .eq('type', 'song');
-
-    const songIds = [
-      ...new Set((songBlocks || []).map((b) => b.content?.song_id).filter(Boolean)),
-    ];
-
-    let songsMap: Record<string, Song> = {};
-    if (songIds.length) {
-      const { data: dbSongs } = await supabase.from('songs').select('*').in('id', songIds);
-      (dbSongs || []).forEach((s) => (songsMap[s.id] = s));
-    }
-
-    const byId: Record<string, { song: Partial<Song>; pages: string[] }> = {};
-    for (const b of songBlocks || []) {
-      const sid = b.content?.song_id || b.content?.title;
-      if (!sid) continue;
-      const page = pages.find((p) => p.id === b.page_id);
-      if (!byId[sid]) {
-        byId[sid] = {
-          song: b.content?.song_id ? songsMap[b.content.song_id] || b.content : b.content,
-          pages: [],
-        };
-      }
-      if (page && !byId[sid].pages.includes(page.title)) {
         byId[sid].pages.push(page.title);
       }
     }
