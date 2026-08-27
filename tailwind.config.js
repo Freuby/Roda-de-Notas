@@ -18,7 +18,25 @@ export default {
         green: {
           DEFAULT: '#1A3C2F',
           light: '#2E6B52',
-          soft<dyad-write path="tailwind.config.js" description="Tailwind configuration with Roda de Notas color palette">
+          soft: '#DCEFE6',
+        },
+        ochre: {
+          DEFAULT: '#FFB300',
+          soft: '#FFF3D6',
+        },
+        border: '#E3DCC9',
+      },
+      fontFamily: {
+        display: ['Poppins', 'sans-serif'],
+        sans: ['Inter', 'sans-serif'],
+      },
+      borderRadius: {
+        DEFAULT: '12px',
+        card: '16px',
+      },
+    },
+  },
+  plugins: [],<dyad-write path="tailwind.config.js" description="Complete and valid Tailwind configuration">
 /** @type {import('tailwindcss').Config} */
 export default {
   content: [
@@ -58,4 +76,4 @@ export default {
     },
   },
   plugins: [],
-}
+};
