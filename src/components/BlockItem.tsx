@@ -254,13 +254,15 @@ export const BlockItem: React.FC<BlockItemProps> = ({
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onClick={() => onSelectBlock(block.id)}
-      className={`group relative flex flex-col items-start gap-0 py-1 rounded-lg hover:bg-black/[0.015] transition-all duration-200 ${
+      className={`group relative flex flex-col items-start gap-0 py-1 rounded-lg hover:bg-black/[0.015] transition-all duration-200 block-animated ${
+        isActive || isHovered ? 'is-active is-hovered' : ''
+      } ${
         dropPos === 'before' ? 'border-t-2 border-terracotta' : ''
       } ${dropPos === 'after' ? 'border-b-2 border-terracotta' : ''}`}
     >
       {/* Action Bar - appears on hover/selection */}
       {!locked && shouldShowActions && (
-        <div className="w-full flex items-center justify-between px-3 py-1.5 bg-bg/50 backdrop-blur-sm rounded-t-lg transition-all duration-200">
+        <div className="w-full flex items-center justify-between px-3 py-1.5 bg-bg/50 backdrop-blur-sm rounded-t-lg transition-all duration-200 block-action-bar">
           <div className="flex items-center gap-2">
             <button
               onClick={(e) => {
@@ -394,7 +396,7 @@ export const BlockItem: React.FC<BlockItemProps> = ({
       {/* Main Content Area with dynamic padding when actions are shown */}
       <div
         className={`flex-1 min-w-0 w-full py-2 px-3 ${
-          !locked && shouldShowActions ? 'pt-4' : ''
+          !locked && shouldShowActions ? 'pt-4 block-content-padded' : ''
         } transition-all duration-200`}
       >
         {renderBlockBody()}
