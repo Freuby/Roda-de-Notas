@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Block, BlockType } from '../types';
 import { SongBlock } from './SongBlock';
 import { VideoBlock } from './VideoBlock';
@@ -36,6 +36,7 @@ interface BlockItemProps {
   onOpenSongPicker: (blockId: string) => void;
   onToggleCollapse: (blockId: string) => void;
   onAddChildBlock: (parentBlockId: string) => void;
+  onReorderBlock?: (draggedId: string, targetId: string, position: 'before' | 'after') => void;
 }
 
 export const BlockItem: React.FC<BlockItemProps> = ({
@@ -58,8 +59,11 @@ export const BlockItem: React.FC<BlockItemProps> = ({
   onOpenSongPicker,
   onToggleCollapse,
   onAddChildBlock,
+  onReorderBlock,
 }) => {
   const [showTypeMenu, setShowTypeMenu] = useState(false);
+  const [dropPos, setDropPos] = useState<'before' | 'after' | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const content = block.content || {};
   const isToggleOpen = openToggles.has(block.id);
   const isActive = activeBlockId === block.id;
@@ -179,6 +183,7 @@ export const BlockItem: React.FC<BlockItemProps> = ({
                     onOpenSongPicker={onOpenSongPicker}
                     onToggleCollapse={onToggleCollapse}
                     onAddChildBlock={onAddChildBlock}
+                    onReorderBlock={onReorderBlock}
                   />
                 ))}
                 {!locked && (
@@ -199,13 +204,58 @@ export const BlockItem: React.FC<BlockItemProps> = ({
     }
   };
 
+  // Drag and drop handlers (only for non-toggle top-level blocks, not for children)
+  const handleDragStart = (e: React.DragEvent) => {
+    if (locked || !onReorderBlock) return;
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', block.id);
+    e.currentTarget.classList.add('opacity-40');
+  };
+
+  const handleDragEnd = (e: React.DragEvent) => {
+    e.currentTarget.classList.remove('opacity-40');
+    setDropPos(null);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    if (locked || !onReorderBlock) return;
+    e.preventDefault();
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const midY = rect.top + rect.height / 2;
+    setDropPos(e.clientY < midY ? 'before' : 'after');
+  };
+
+  const handleDragLeave = () => {
+    setDropPos(null);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    if (locked || !onReorderBlock) return;
+    e.preventDefault();
+    const draggedId = e.dataTransfer.getData('text/plain');
+    if (draggedId && draggedId !== block.id && dropPos) {
+      onReorderBlock(draggedId, block.id, dropPos);
+    }
+    setDropPos(null);
+  };
+
   return (
     <div
+      ref={containerRef}
+      draggable={!locked && !!onReorderBlock}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
       onClick={() => onSelectBlock(block.id)}
-      className="group relative flex items-start gap-1 py-1 rounded-lg hover:bg-black/[0.015] transition-colors"
+      className={`group relative flex items-start gap-1 py-1 rounded-lg hover:bg-black/[0.015] transition-colors ${
+        dropPos === 'before' ? 'border-t-2 border-terracotta' : ''
+      } ${dropPos === 'after' ? 'border-b-2 border-terracotta' : ''}`}
     >
       {!locked && (
-        <div className="opacity-0 group-hover:opacity-100 p-1 text-muted cursor-grab flex-shrink-0 mt-0.5">
+        <div className="opacity-0 group-hover:opacity-100 p-1 text-muted cursor-grab active:cursor-grabbing flex-shrink-0 mt-0.5">
           <GripVertical className="w-3.5 h-3.5" />
         </div>
       )}

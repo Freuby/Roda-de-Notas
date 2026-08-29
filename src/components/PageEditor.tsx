@@ -33,6 +33,7 @@ interface PageEditorProps {
   onOpenEmojiPicker: (blockId: string) => void;
   onOpenSongPicker: (blockId: string) => void;
   onToggleCollapse: (blockId: string) => void;
+  onReorderBlock: (draggedId: string, targetId: string, position: 'before' | 'after') => void;
 }
 
 export const PageEditor: React.FC<PageEditorProps> = ({
@@ -63,6 +64,7 @@ export const PageEditor: React.FC<PageEditorProps> = ({
   onOpenEmojiPicker,
   onOpenSongPicker,
   onToggleCollapse,
+  onReorderBlock,
 }) => {
   const [commentInput, setCommentInput] = useState('');
   const topLevelBlocks = blocks.filter((b) => !b.parent_block_id);
@@ -134,6 +136,7 @@ export const PageEditor: React.FC<PageEditorProps> = ({
               onOpenEmojiPicker={onOpenEmojiPicker}
               onOpenSongPicker={onOpenSongPicker}
               onToggleCollapse={onToggleCollapse}
+              onReorderBlock={onReorderBlock}
               onAddChildBlock={(parentId) => onAddBlock('paragraph', parentId)}
             />
 

@@ -290,6 +290,7 @@ export const App: React.FC = () => {
                 else next.add(id);
                 data.setOpenToggles(next);
               }}
+              onReorderBlock={data.handleReorderBlock}
             />
           ) : (
             <EmptyState

@@ -472,6 +472,43 @@ export function useRodaData(session: any) {
     setBlocks(blocks.filter((b) => b.id !== block.id && b.parent_block_id !== block.id));
   };
 
+  // Drag-and-drop reordering within the same page (top-level blocks only)
+  const handleReorderBlock = async (
+    draggedId: string,
+    targetId: string,
+    position: 'before' | 'after'
+  ) => {
+    const dragged = blocks.find((b) => b.id === draggedId);
+    const target = blocks.find((b) => b.id === targetId);
+    if (!dragged || !target) return;
+    if (dragged.parent_block_id || target.parent_block_id) return; // top-level only
+
+    // Local reordering
+    const topLevel = blocks.filter((b) => !b.parent_block_id);
+    const filtered = topLevel.filter((b) => b.id !== draggedId);
+    const targetIdx = filtered.findIndex((b) => b.id === targetId);
+    const insertAt = position === 'before' ? targetIdx : targetIdx + 1;
+    filtered.splice(insertAt, 0, dragged);
+
+    const updates: { id: string; order_index: number }[] = [];
+    const next = filtered.map((b, i) => {
+      if (b.order_index !== i) {
+        b.order_index = i;
+        updates.push({ id: b.id, order_index: i });
+      }
+      return b;
+    });
+
+    // Merge back with children blocks
+    const childBlocks = blocks.filter((b) => b.parent_block_id);
+    setBlocks([...next, ...childBlocks]);
+
+    // Persist to DB
+    for (const u of updates) {
+      await supabase.from('blocks').update({ order_index: u.order_index }).eq('id', u.id);
+    }
+  };
+
   const handleTogglePrerequisite = async (prereqId: string) => {
     if (!currentPageId || currentPageId === '__repertoire__') return;
     const exists = pagePrereqIds.has(prereqId);
@@ -555,6 +592,7 @@ export function useRodaData(session: any) {
     handleDuplicateBlock,
     handleMoveBlockToPage,
     handleDeleteBlock,
+    handleReorderBlock,
     handleTogglePrerequisite,
     handleAddComment,
   };
