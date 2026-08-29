@@ -55,3 +55,47 @@ h1, h2, h3, .font-display {
     background-color: transparent;
   }
 }
+
+/* ----------- Block animations: shift on hover/active ----------- */
+.block-animated {
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 0.2s ease, box-shadow 0.25s ease;
+  transform-origin: left center;
+  border-radius: 10px;
+}
+
+.block-animated.is-active,
+.block-animated.is-hovered {
+  transform: translateX(-6px);
+  background-color: rgba(255, 227, 204, 0.18);
+  box-shadow: -2px 0 0 0 var(--terracotta), 0 1px 8px rgba(255, 107, 0, 0.06);
+}
+
+.block-action-bar {
+  opacity: 0;
+  transform: translateY(-4px);
+  max-height: 0;
+  overflow: hidden;
+  transition: opacity 0.18s ease, transform 0.22s cubic-bezier(0.4, 0, 0.2, 1),
+    max-height 0.25s ease, padding 0.22s ease;
+  padding: 0 0.75rem;
+  pointer-events: none;
+}
+
+.block-animated.is-active .block-action-bar,
+.block-animated.is-hovered .block-action-bar {
+  opacity: 1;
+  transform: translateY(0);
+  max-height: 44px;
+  padding: 0.4rem 0.75rem;
+  pointer-events: auto;
+}
+
+.block-content-padded {
+  transition: padding 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.block-animated.is-active .block-content-padded,
+.block-animated.is-hovered .block-content-padded {
+  padding-top: 0.25rem;
+}
