@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Space, Page, Block, Profile, Song, Prerequisite, BlockType } from '../types';
+import { Space, Page, Block, Profile, Song, Prerequisite, BlockType, NotificationItem } from '../types';
 
 export function useRodaData(session: any) {
   // Spaces & Pages
@@ -25,6 +25,9 @@ export function useRodaData(session: any) {
   const [openCommentBlockId, setOpenCommentBlockId] = useState<string | null>(null);
   const [openToggles, setOpenToggles] = useState<Set<string>>(new Set());
 
+  // Notifications
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+
   // Bootstrap data on login
   useEffect(() => {
     if (session) {
@@ -32,6 +35,7 @@ export function useRodaData(session: any) {
       loadSpaces();
       loadPrerequisites();
       loadSongs();
+      loadNotifications();
     }
   }, [session]);
 
@@ -120,6 +124,62 @@ export function useRodaData(session: any) {
     }
   };
 
+  const loadNotifications = async () => {
+    if (!session?.user?.id) return;
+    const meId = session.user.id;
+
+    const { data: comments } = await supabase
+      .from('comments')
+      .select('id, block_id, content, created_at, user_id, seen_by')
+      .neq('user_id', meId)
+      .order('created_at', { ascending: false })
+      .limit(40);
+
+    if (!comments || comments.length === 0) {
+      setNotifications([]);
+      return;
+    }
+
+    const blockIds = [...new Set(comments.map((c) => c.block_id))];
+    const { data: blocksData } = await supabase
+      .from('blocks')
+      .select('id, page_id')
+      .in('id', blockIds);
+
+    const pageIds = [...new Set((blocksData || []).map((b) => b.page_id))];
+    const { data: pagesData } = await supabase
+      .from('pages')
+      .select('id, title')
+      .in('id', pageIds);
+
+    const blockToPage: Record<string, string> = {};
+    (blocksData || []).forEach((b) => (blockToPage[b.id] = b.page_id));
+    const pageMap: Record<string, string> = {};
+    (pagesData || []).forEach((p) => (pageMap[p.id] = p.title));
+
+    setNotifications(
+      comments.map((c) => ({
+        ...c,
+        page_id: blockToPage[c.block_id],
+        page_title: pageMap[blockToPage[c.block_id]] || 'Cours',
+        seen: (c.seen_by || []).includes(meId),
+      }))
+    );
+  };
+
+  const markAllNotificationsRead = async () => {
+    if (!session?.user?.id) return;
+    const meId = session.user.id;
+    const unread = notifications.filter((n) => !n.seen);
+    if (!unread.length) return;
+
+    for (const notif of unread) {
+      const newSeen = [...new Set([...(notif.seen_by || []), meId])];
+      await supabase.from('comments').update({ seen_by: newSeen }).eq('id', notif.id);
+    }
+    setNotifications(notifications.map((n) => ({ ...n, seen: true })));
+  };
+
   const loadPrerequisites = async () => {
     const { data } = await supabase
       .from('prerequisites')
@@ -175,7 +235,7 @@ export function useRodaData(session: any) {
     if (data) setAllSongs(data);
   };
 
-  // Actions
+  // Actions: Spaces
   const handleCreateSpace = async () => {
     const name = prompt('Nom du nouvel espace (ex : Année 2026-2027)');
     if (!name || !name.trim()) return;
@@ -192,6 +252,26 @@ export function useRodaData(session: any) {
     }
   };
 
+  const handleRenameSpace = async (space: Space) => {
+    const newName = prompt('Renommer cet espace', space.name);
+    if (!newName || !newName.trim() || newName.trim() === space.name) return;
+    const trimmed = newName.trim();
+    setSpaces(spaces.map((s) => (s.id === space.id ? { ...s, name: trimmed } : s)));
+    await supabase.from('spaces').update({ name: trimmed }).eq('id', space.id);
+  };
+
+  const handleDeleteSpace = async (space: Space) => {
+    if (!confirm(`Supprimer l'espace « ${space.name} » et tout son contenu ?`)) return;
+    await supabase.from('spaces').delete().eq('id', space.id);
+    const remaining = spaces.filter((s) => s.id !== space.id);
+    setSpaces(remaining);
+    if (currentSpaceId === space.id) {
+      setCurrentSpaceId(remaining[0]?.id || null);
+      setCurrentPageId(null);
+    }
+  };
+
+  // Actions: Pages
   const handleCreatePage = async () => {
     if (!currentSpaceId) return;
     const maxOrder = pages.reduce((m, p) => Math.max(m, p.order_index || 0), -1);
@@ -211,6 +291,60 @@ export function useRodaData(session: any) {
     }
   };
 
+  const handleDuplicatePage = async (page: Page) => {
+    const newTitle = page.title + ' (copie)';
+    const maxOrder = pages.reduce((m, p) => Math.max(m, p.order_index || 0), -1);
+    const { data: newPage } = await supabase
+      .from('pages')
+      .insert({
+        space_id: page.space_id,
+        title: newTitle,
+        created_by: session.user.id,
+        order_index: maxOrder + 1,
+        locked: false,
+      })
+      .select()
+      .single();
+
+    if (!newPage) return;
+
+    const { data: sourceBlocks } = await supabase
+      .from('blocks')
+      .select('*')
+      .eq('page_id', page.id)
+      .order('order_index');
+
+    if (sourceBlocks && sourceBlocks.length > 0) {
+      const clonedBlocks = sourceBlocks.map((b) => ({
+        page_id: newPage.id,
+        type: b.type,
+        content: b.content,
+        parent_block_id: b.parent_block_id,
+        order_index: b.order_index,
+        created_by: session.user.id,
+      }));
+      await supabase.from('blocks').insert(clonedBlocks);
+    }
+
+    setPages([...pages, newPage]);
+    setCurrentPageId(newPage.id);
+  };
+
+  const handleDeletePage = async (page: Page) => {
+    if (page.locked) {
+      alert('Ce cours est verrouillé. Déverrouillez-le avant de le supprimer.');
+      return;
+    }
+    if (!confirm(`Supprimer le cours « ${page.title} » ?`)) return;
+
+    await supabase.from('pages').delete().eq('id', page.id);
+    const remaining = pages.filter((p) => p.id !== page.id);
+    setPages(remaining);
+    if (currentPageId === page.id) {
+      setCurrentPageId(remaining[0]?.id || null);
+    }
+  };
+
   const handleUpdatePageTitle = async (title: string) => {
     if (!currentPageId || currentPageId === '__repertoire__') return;
     setPages(pages.map((p) => (p.id === currentPageId ? { ...p, title } : p)));
@@ -225,6 +359,7 @@ export function useRodaData(session: any) {
     await supabase.from('pages').update({ locked: nextLocked }).eq('id', page.id);
   };
 
+  // Actions: Blocks
   const handleAddBlock = async (
     type: BlockType,
     parentBlockId: string | null = null,
@@ -314,6 +449,23 @@ export function useRodaData(session: any) {
     }
   };
 
+  const handleMoveBlockToPage = async (block: Block, targetPageId: string) => {
+    const { data: targetBlocks } = await supabase
+      .from('blocks')
+      .select('order_index')
+      .eq('page_id', targetPageId)
+      .order('order_index', { ascending: false })
+      .limit(1);
+
+    const maxOrder = targetBlocks && targetBlocks.length ? targetBlocks[0].order_index + 1 : 0;
+    await supabase
+      .from('blocks')
+      .update({ page_id: targetPageId, parent_block_id: null, order_index: maxOrder })
+      .eq('id', block.id);
+
+    setBlocks(blocks.filter((b) => b.id !== block.id));
+  };
+
   const handleDeleteBlock = async (block: Block) => {
     if (!confirm('Supprimer ce bloc ?')) return;
     await supabase.from('blocks').delete().eq('id', block.id);
@@ -387,14 +539,21 @@ export function useRodaData(session: any) {
     setOpenCommentBlockId,
     openToggles,
     setOpenToggles,
+    notifications,
+    markAllNotificationsRead,
     handleCreateSpace,
+    handleRenameSpace,
+    handleDeleteSpace,
     handleCreatePage,
+    handleDuplicatePage,
+    handleDeletePage,
     handleUpdatePageTitle,
     handleToggleLock,
     handleAddBlock,
     handleUpdateBlockContent,
     handleChangeBlockType,
     handleDuplicateBlock,
+    handleMoveBlockToPage,
     handleDeleteBlock,
     handleTogglePrerequisite,
     handleAddComment,

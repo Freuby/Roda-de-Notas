@@ -8,6 +8,7 @@ import { Lock, Unlock, Plus, Send } from 'lucide-react';
 interface PageEditorProps {
   page: Page;
   spaceName: string;
+  pages: Page[];
   blocks: Block[];
   prerequisites: Prerequisite[];
   selectedPrereqIds: Set<string>;
@@ -24,6 +25,7 @@ interface PageEditorProps {
   onUpdateBlockContent: (block: Block, patch: any) => void;
   onChangeBlockType: (block: Block, type: BlockType) => void;
   onDuplicateBlock: (block: Block) => void;
+  onMoveBlockToPage: (block: Block) => void;
   onDeleteBlock: (block: Block) => void;
   onAddBlock: (type: BlockType, parentId?: string | null) => void;
   onToggleComment: (blockId: string) => void;
@@ -36,6 +38,7 @@ interface PageEditorProps {
 export const PageEditor: React.FC<PageEditorProps> = ({
   page,
   spaceName,
+  pages,
   blocks,
   prerequisites,
   selectedPrereqIds,
@@ -52,6 +55,7 @@ export const PageEditor: React.FC<PageEditorProps> = ({
   onUpdateBlockContent,
   onChangeBlockType,
   onDuplicateBlock,
+  onMoveBlockToPage,
   onDeleteBlock,
   onAddBlock,
   onToggleComment,
@@ -124,7 +128,7 @@ export const PageEditor: React.FC<PageEditorProps> = ({
               onUpdateContent={onUpdateBlockContent}
               onChangeType={onChangeBlockType}
               onDuplicate={onDuplicateBlock}
-              onMoveToPage={() => {}}
+              onMoveToPage={() => onMoveBlockToPage(b)}
               onDelete={onDeleteBlock}
               onToggleComment={onToggleComment}
               onOpenEmojiPicker={onOpenEmojiPicker}

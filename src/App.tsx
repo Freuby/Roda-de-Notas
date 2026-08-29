@@ -8,7 +8,9 @@ import { RepertoireView } from './components/RepertoireView';
 import { SongPickerModal } from './components/SongPickerModal';
 import { EmojiPickerModal } from './components/EmojiPickerModal';
 import { GlobalSearchModal } from './components/GlobalSearchModal';
+import { MoveBlockModal } from './components/MoveBlockModal';
 import { useRodaData } from './hooks/useRodaData';
+import { Block, NotificationItem } from './types';
 import { Menu, Search } from 'lucide-react';
 
 export const App: React.FC = () => {
@@ -19,6 +21,7 @@ export const App: React.FC = () => {
   const [searchOpen, setSearchOpen] = useState(false);
   const [emojiPickerBlockId, setEmojiPickerBlockId] = useState<string | null>(null);
   const [songPickerBlockId, setSongPickerBlockId] = useState<string | null>(null);
+  const [movingBlock, setMovingBlock] = useState<Block | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
 
@@ -38,7 +41,34 @@ export const App: React.FC = () => {
     };
   }, []);
 
+  // Global shortcut Cmd+K / Ctrl+K
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   const data = useRodaData(session);
+
+  const handleSelectNotification = async (notif: NotificationItem) => {
+    if (notif.page_id) {
+      const { data: page } = await supabase
+        .from('pages')
+        .select('space_id')
+        .eq('id', notif.page_id)
+        .single();
+      if (page) {
+        data.setCurrentSpaceId(page.space_id);
+        data.setCurrentPageId(notif.page_id);
+        data.setOpenCommentBlockId(notif.block_id);
+      }
+    }
+  };
 
   if (loading) {
     return (
@@ -78,16 +108,24 @@ export const App: React.FC = () => {
         currentPageId={data.currentPageId}
         spaceCoverage={data.spaceCoverage}
         userName={data.profileMap[session.user.id] || session.user.email}
+        notifications={data.notifications}
+        profileMap={data.profileMap}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         onSelectSpace={(sId) => {
           data.setCurrentSpaceId(sId);
           data.setCurrentPageId(null);
         }}
+        onRenameSpace={data.handleRenameSpace}
+        onDeleteSpace={data.handleDeleteSpace}
         onSelectPage={data.setCurrentPageId}
+        onDuplicatePage={data.handleDuplicatePage}
+        onDeletePage={data.handleDeletePage}
         onCreateSpace={data.handleCreateSpace}
         onCreatePage={data.handleCreatePage}
         onOpenSearch={() => setSearchOpen(true)}
+        onMarkAllRead={data.markAllNotificationsRead}
+        onSelectNotification={handleSelectNotification}
       />
 
       {/* Main Content Area */}
@@ -99,6 +137,7 @@ export const App: React.FC = () => {
             <PageEditor
               page={activePage}
               spaceName={activeSpace?.name || ''}
+              pages={data.pages}
               blocks={data.blocks}
               prerequisites={data.allPrerequisites}
               selectedPrereqIds={data.pagePrereqIds}
@@ -115,6 +154,7 @@ export const App: React.FC = () => {
               onUpdateBlockContent={data.handleUpdateBlockContent}
               onChangeBlockType={(b, type) => data.handleChangeBlockType(b, type, setSongPickerBlockId)}
               onDuplicateBlock={data.handleDuplicateBlock}
+              onMoveBlockToPage={(b) => setMovingBlock(b)}
               onDeleteBlock={data.handleDeleteBlock}
               onAddBlock={(type, parentId) => data.handleAddBlock(type, parentId, setSongPickerBlockId)}
               onToggleComment={(id) =>
@@ -149,6 +189,18 @@ export const App: React.FC = () => {
             data.setCurrentPageId(pId);
           }}
           onClose={() => setSearchOpen(false)}
+        />
+      )}
+
+      {movingBlock && (
+        <MoveBlockModal
+          block={movingBlock}
+          pages={data.pages}
+          onMove={(targetPageId) => {
+            data.handleMoveBlockToPage(movingBlock, targetPageId);
+            setMovingBlock(null);
+          }}
+          onClose={() => setMovingBlock(null)}
         />
       )}
 

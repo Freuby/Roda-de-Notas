@@ -1,8 +1,20 @@
-import React from 'react';
-import { Space, Page } from '../types';
-import { Search, Plus, Lock, Music, LogOut } from 'lucide-react';
+import React, { useState } from 'react';
+import { Space, Page, NotificationItem } from '../types';
+import {
+  Search,
+  Plus,
+  Lock,
+  Music,
+  LogOut,
+  MoreVertical,
+  Edit2,
+  Trash2,
+  Copy,
+  MessageSquare,
+} from 'lucide-react';
 import { SPACE_ICONS } from './Icons';
 import { supabase } from '../lib/supabase';
+import { NotificationsPanel } from './NotificationsPanel';
 
 interface SidebarProps {
   spaces: Space[];
@@ -11,13 +23,21 @@ interface SidebarProps {
   currentPageId: string | null;
   spaceCoverage: Record<string, { '2': number; '3': number; '4': number }>;
   userName: string;
+  notifications: NotificationItem[];
+  profileMap: Record<string, string>;
   isOpen: boolean;
   onClose: () => void;
   onSelectSpace: (spaceId: string) => void;
+  onRenameSpace: (space: Space) => void;
+  onDeleteSpace: (space: Space) => void;
   onSelectPage: (pageId: string) => void;
+  onDuplicatePage: (page: Page) => void;
+  onDeletePage: (page: Page) => void;
   onCreateSpace: () => void;
   onCreatePage: () => void;
   onOpenSearch: () => void;
+  onMarkAllRead: () => void;
+  onSelectNotification: (notif: NotificationItem) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -27,15 +47,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
   currentPageId,
   spaceCoverage,
   userName,
+  notifications,
+  profileMap,
   isOpen,
   onClose,
   onSelectSpace,
+  onRenameSpace,
+  onDeleteSpace,
   onSelectPage,
+  onDuplicatePage,
+  onDeletePage,
   onCreateSpace,
   onCreatePage,
   onOpenSearch,
+  onMarkAllRead,
+  onSelectNotification,
 }) => {
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [activeSpaceMenuId, setActiveSpaceMenuId] = useState<string | null>(null);
+
   const activeSpace = spaces.find((s) => s.id === currentSpaceId);
+  const unreadCount = notifications.filter((n) => !n.seen).length;
 
   return (
     <>
@@ -86,6 +118,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <Plus className="w-3.5 h-3.5" />
               </button>
             </div>
+
             <div className="space-y-1">
               {spaces.map((s, idx) => {
                 const IconComp = SPACE_ICONS[idx % SPACE_ICONS.length];
@@ -93,43 +126,82 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 const isActive = s.id === currentSpaceId;
 
                 return (
-                  <button
-                    key={s.id}
-                    onClick={() => {
-                      onSelectSpace(s.id);
-                    }}
-                    className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-sm transition-colors text-left ${
-                      isActive
-                        ? 'bg-terracotta-soft text-ink font-semibold'
-                        : 'hover:bg-bg text-ink'
-                    }`}
-                  >
-                    <span
-                      className={`w-6 h-6 rounded-full border flex items-center justify-center text-xs flex-shrink-0 ${
+                  <div key={s.id} className="relative group">
+                    <button
+                      onClick={() => {
+                        onSelectSpace(s.id);
+                      }}
+                      className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-sm transition-colors text-left ${
                         isActive
-                          ? 'bg-terracotta border-terracotta text-white'
-                          : 'bg-white border-border text-terracotta'
+                          ? 'bg-terracotta-soft text-ink font-semibold'
+                          : 'hover:bg-bg text-ink'
                       }`}
                     >
-                      <IconComp className="w-3.5 h-3.5" />
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <div className="truncate text-xs font-semibold">{s.name}</div>
-                      {cov && (
-                        <div className="flex gap-1 mt-1">
-                          <span className="text-[9px] px-1 rounded bg-green-soft text-green font-bold">
-                            2e {cov['2']}%
-                          </span>
-                          <span className="text-[9px] px-1 rounded bg-ochre-soft text-[#8a6a1f] font-bold">
-                            3e {cov['3']}%
-                          </span>
-                          <span className="text-[9px] px-1 rounded bg-[#dce8f5] text-[#2c5d8a] font-bold">
-                            4e {cov['4']}%
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </button>
+                      <span
+                        className={`w-6 h-6 rounded-full border flex items-center justify-center text-xs flex-shrink-0 ${
+                          isActive
+                            ? 'bg-terracotta border-terracotta text-white'
+                            : 'bg-white border-border text-terracotta'
+                        }`}
+                      >
+                        <IconComp className="w-3.5 h-3.5" />
+                      </span>
+                      <div className="flex-1 min-w-0 pr-6">
+                        <div className="truncate text-xs font-semibold">{s.name}</div>
+                        {cov && (
+                          <div className="flex gap-1 mt-1">
+                            <span className="text-[9px] px-1 rounded bg-green-soft text-green font-bold">
+                              2e {cov['2']}%
+                            </span>
+                            <span className="text-[9px] px-1 rounded bg-ochre-soft text-[#8a6a1f] font-bold">
+                              3e {cov['3']}%
+                            </span>
+                            <span className="text-[9px] px-1 rounded bg-[#dce8f5] text-[#2c5d8a] font-bold">
+                              4e {cov['4']}%
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </button>
+
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveSpaceMenuId(activeSpaceMenuId === s.id ? null : s.id);
+                      }}
+                      className="absolute right-2 top-2.5 p-1 text-muted hover:text-ink opacity-0 group-hover:opacity-100 rounded"
+                    >
+                      <MoreVertical className="w-3.5 h-3.5" />
+                    </button>
+
+                    {activeSpaceMenuId === s.id && (
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        className="absolute right-2 top-9 bg-surface border border-border rounded-xl shadow-xl p-1 z-40 w-36 text-xs"
+                      >
+                        <button
+                          onClick={() => {
+                            onRenameSpace(s);
+                            setActiveSpaceMenuId(null);
+                          }}
+                          className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-bg text-ink"
+                        >
+                          <Edit2 className="w-3 h-3 text-muted" />
+                          <span>Renommer</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            onDeleteSpace(s);
+                            setActiveSpaceMenuId(null);
+                          }}
+                          className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-bg text-terracotta"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          <span>Supprimer</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 );
               })}
             </div>
@@ -151,24 +223,46 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </button>
               )}
             </div>
+
             <div className="space-y-1">
               {pages.map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => {
-                    onSelectPage(p.id);
-                    onClose();
-                  }}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition-colors text-left ${
-                    p.id === currentPageId
-                      ? 'bg-green-soft text-green font-bold'
-                      : 'hover:bg-bg text-ink font-medium'
-                  }`}
-                >
-                  <span className="truncate flex-1">{p.title || 'Sans titre'}</span>
-                  {p.locked && <Lock className="w-3 h-3 text-muted ml-2 flex-shrink-0" />}
-                </button>
+                <div key={p.id} className="group flex items-center justify-between rounded-xl">
+                  <button
+                    onClick={() => {
+                      onSelectPage(p.id);
+                      onClose();
+                    }}
+                    className={`flex-1 flex items-center gap-2 px-3 py-2 rounded-xl text-xs transition-colors text-left min-w-0 ${
+                      p.id === currentPageId
+                        ? 'bg-green-soft text-green font-bold'
+                        : 'hover:bg-bg text-ink font-medium'
+                    }`}
+                  >
+                    <span className="truncate flex-1">{p.title || 'Sans titre'}</span>
+                    {p.locked && <Lock className="w-3 h-3 text-muted flex-shrink-0" />}
+                  </button>
+
+                  <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 pr-1">
+                    <button
+                      onClick={() => onDuplicatePage(p)}
+                      className="p-1 text-muted hover:text-ink rounded"
+                      title="Dupliquer ce cours"
+                    >
+                      <Copy className="w-3 h-3" />
+                    </button>
+                    {!p.locked && (
+                      <button
+                        onClick={() => onDeletePage(p)}
+                        className="p-1 text-muted hover:text-terracotta rounded"
+                        title="Supprimer"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                </div>
               ))}
+
               {currentSpaceId && (
                 <button
                   onClick={() => {
@@ -190,16 +284,44 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="p-3 border-t border-border flex items-center justify-between text-xs text-muted">
-          <span className="truncate max-w-[140px] font-medium">{userName}</span>
-          <button
-            onClick={() => supabase.auth.signOut()}
-            className="flex items-center gap-1 text-terracotta font-semibold hover:underline"
-            title="Déconnexion"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            <span>Sortir</span>
-          </button>
+        <div className="relative p-3 border-t border-border flex items-center justify-between text-xs text-muted">
+          <span className="truncate max-w-[110px] font-medium">{userName}</span>
+
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setNotifOpen(!notifOpen)}
+              className={`p-1.5 rounded-lg border flex items-center gap-1 transition-colors ${
+                unreadCount > 0
+                  ? 'border-terracotta text-terracotta bg-terracotta-soft font-bold'
+                  : 'border-border text-muted hover:text-ink hover:bg-bg'
+              }`}
+              title="Commentaires récents"
+            >
+              <MessageSquare className="w-3.5 h-3.5" />
+              {unreadCount > 0 && <span className="text-[10px]">{unreadCount}</span>}
+            </button>
+
+            <button
+              onClick={() => supabase.auth.signOut()}
+              className="flex items-center gap-1 text-terracotta font-semibold hover:underline p-1.5"
+              title="Déconnexion"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {notifOpen && (
+            <NotificationsPanel
+              notifications={notifications}
+              profileMap={profileMap}
+              onSelectNotif={(n) => {
+                onSelectNotification(n);
+                setNotifOpen(false);
+              }}
+              onMarkAllRead={onMarkAllRead}
+              onClose={() => setNotifOpen(false)}
+            />
+          )}
         </div>
       </aside>
     </>
