@@ -18,17 +18,9 @@ const CORDE_LABELS: Record<string, string> = {
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
-  esquives: 'Esquives',
-  coups: 'Coups',
-  acrobatiques: 'Acrobatiques',
-  codes: 'Codes',
-  monde: 'Le monde de la capoeira',
-  musicalite: 'Musicalité',
-  bases: 'Bases',
-  deplacements: 'Déplacements',
-  desequilibrants: 'Déséquilibrants',
-  chamadas: 'Chamadas',
-  maculele: 'Maculêlê',
+  esquives: 'Esquives', coups: 'Coups', acrobatiques: 'Acrobatiques', codes: 'Codes',
+  monde: 'Le monde de la capoeira', musicalite: 'Musicalité', bases: 'Bases',
+  deplacements: 'Déplacements', desequilibrants: 'Déséquilibrants', chamadas: 'Chamadas', maculele: 'Maculêlê'
 };
 
 export const PrerequisitesBar: React.FC<PrerequisitesBarProps> = ({

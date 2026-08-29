@@ -102,11 +102,44 @@ export function downloadSpaceArchive(space: Space, pages: Page[], blocks: Block[
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Archive — ${space.name}</title>
 <style>
-  body { font-family:'Segoe UI', system-ui, -apple-system, sans-serif; max-width:760px; margin:40px auto; padding:0 24px; color:#1A3C2F; background:#F5F0E6; line-height: 1.5; }
-  a { color:#FF6B00; text-decoration: none; }
-  a:hover { text-decoration: underline; }
-  .archive-header { text-align:center; margin-bottom:40px; padding-bottom:20px; border-bottom:3px double #FF6B00; }
-  .archive-header p { color:#7A7A7A; font-size:13px; margin-top: 4px; }
+  body { 
+    font-family:'Segoe UI', system-ui, -apple-system, sans-serif; 
+    max-width:760px; 
+    margin:40px auto; 
+    padding:0 24px; 
+    color:#1A3C2F; 
+    background:#F5F0E6; 
+    line-height: 1.5; 
+  }
+  a { 
+    color:#FF6B00; 
+    text-decoration: none; 
+  }
+  a:hover { 
+    text-decoration: underline; 
+  }
+  .archive-header { 
+    text-align:center; 
+    margin-bottom:40px; 
+    padding-bottom:20px; 
+    border-bottom:3px double #FF6B00; 
+  }
+  .archive-header p { 
+    color:#7A7A7A; 
+    font-size:13px; 
+    margin-top: 4px; 
+  }
+  .archive-metadata {
+    background:#F8F5EE;
+    border-left:4px solid #FF6B00;
+    padding:12px 16px;
+    margin-bottom:24px;
+    font-size:12px;
+    color:#5a4a2c;
+  }
+  .archive-metadata strong {
+    color:#FF6B00;
+  }
 </style>
 </head>
 <body>
@@ -118,6 +151,14 @@ export function downloadSpaceArchive(space: Space, pages: Page[], blocks: Block[
       year: 'numeric',
     })} — ${pages.length} cours</p>
   </div>
+  
+  <div class="archive-metadata">
+    <strong>Créé par:</strong> ${space.created_by}<br>
+    <strong>Date de création:</strong> ${new Date(space.created_at || '').toLocaleDateString('fr-FR')}<br>
+    <strong>Total des blocs:</strong> ${blocks.length}<br>
+    <strong>Type de contenu:</strong> ${pages.reduce((sum, p) => sum + (blocksByPage[p.id]?.length || 0), 0)} éléments
+  </div>
+  
   ${pagesHtml}
   <script type="application/json" id="roda-archive-data">${payloadEscaped}</script>
 </body>
@@ -128,7 +169,7 @@ export function downloadSpaceArchive(space: Space, pages: Page[], blocks: Block[
   const a = document.createElement('a');
   const safeName = space.name.replace(/[^a-z0-9_\-]+/gi, '_');
   a.href = url;
-  a.download = `archive_${safeName}.html`;
+  a.download = `archive_${safeName}_${new Date().getFullYear()}-${(new Date().getMonth() + 1).toString().padStart(2, '0')}-${new Date().getDate().toString().padStart(2, '0')}.html`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);

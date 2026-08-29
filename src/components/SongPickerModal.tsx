@@ -25,7 +25,7 @@ export const SongPickerModal: React.FC<SongPickerModalProps> = ({ songs, onSelec
     <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
       <div className="bg-surface border border-border rounded-card w-full max-w-lg shadow-2xl flex flex-col max-h-[80vh] overflow-hidden">
         <div className="p-4 border-b border-border flex items-center justify-between">
-          <h3 className="font-display font-bold text-base text-ink">Choisir un chant</h3>
+          <h3 className="font-display font-bold text-sm text-ink">Choisir un chant</h3>
           <button onClick={onClose} className="p-1 text-muted hover:text-ink rounded-lg">
             <X className="w-4 h-4" />
           </button>
@@ -36,7 +36,7 @@ export const SongPickerModal: React.FC<SongPickerModalProps> = ({ songs, onSelec
           <input
             type="text"
             autoFocus
-            placeholder="Rechercher un titre, des paroles, un mnémo…"
+            placeholder="Rechercher un titre, des paroles…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="w-full bg-transparent border-none outline-none text-xs text-ink placeholder-muted"
@@ -45,7 +45,9 @@ export const SongPickerModal: React.FC<SongPickerModalProps> = ({ songs, onSelec
 
         <div className="flex-1 overflow-y-auto p-2 space-y-1">
           {filtered.length === 0 ? (
-            <p className="text-center text-xs text-muted py-8 italic">Aucun chant trouvé.</p>
+            <p className="text-center text-xs text-muted py-8 italic">
+              Aucun chant trouvé.
+            </p>
           ) : (
             filtered.map((s) => (
               <button

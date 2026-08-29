@@ -3,6 +3,7 @@
 @tailwind utilities;
 
 :root {
+  /* Light theme (default) */
   --bg: #F5F0E6;
   --surface: #FFFFFF;
   --ink: #1A3C2F;
@@ -21,6 +22,23 @@
   --sidebar-width: 280px;
 }
 
+/* Dark theme */
+.dark {
+  --bg: #0F1A16;
+  --surface: #1A2A22;
+  --ink: #E8F0EB;
+  --muted: #9BA8A3;
+  --terracotta: #FF7A2A;
+  --terracotta-soft: #3D2010;
+  --green: #4A9B7F;
+  --green-light: #6BB99A;
+  --green-soft: #1E3228;
+  --ochre: #FFB300;
+  --ochre-soft: #4D3F0F;
+  --leaf: #00E676;
+  --border: #2A3A32;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -36,11 +54,21 @@ body {
   background-color: var(--bg);
   color: var(--ink);
   -webkit-font-smoothing: antialiased;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 h1, h2, h3, .font-display {
   font-family: 'Poppins', sans-serif;
   font-weight: 700;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+input, textarea {
+  font-family: inherit;
 }
 
 .search-highlight {
