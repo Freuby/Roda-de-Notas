@@ -63,10 +63,12 @@ export const BlockItem: React.FC<BlockItemProps> = ({
 }) => {
   const [showTypeMenu, setShowTypeMenu] = useState(false);
   const [dropPos, setDropPos] = useState<'before' | 'after' | null>(null);
+  const [isHovered, setIsHovered] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const content = block.content || {};
   const isToggleOpen = openToggles.has(block.id);
   const isActive = activeBlockId === block.id;
+  const shouldShowActions = isHovered || isActive;
 
   const createdByName = profileMap[block.created_by] || 'Inconnu';
   const updatedByName = block.updated_by ? profileMap[block.updated_by] || 'Inconnu' : null;
@@ -249,66 +251,56 @@ export const BlockItem: React.FC<BlockItemProps> = ({
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       onClick={() => onSelectBlock(block.id)}
-      className={`group relative flex items-start gap-1 py-1 rounded-lg hover:bg-black/[0.015] transition-colors ${
+      className={`group relative flex flex-col items-start gap-0 py-1 rounded-lg hover:bg-black/[0.015] transition-all duration-200 ${
         dropPos === 'before' ? 'border-t-2 border-terracotta' : ''
       } ${dropPos === 'after' ? 'border-b-2 border-terracotta' : ''}`}
     >
-      {!locked && (
-        <div className="opacity-0 group-hover:opacity-100 p-1 text-muted cursor-grab active:cursor-grabbing flex-shrink-0 mt-0.5">
-          <GripVertical className="w-3.5 h-3.5" />
-        </div>
-      )}
+      {/* Action Bar - appears on hover/selection */}
+      {!locked && shouldShowActions && (
+        <div className="w-full flex items-center justify-between px-3 py-1.5 bg-bg/50 backdrop-blur-sm rounded-t-lg transition-all duration-200">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleComment(block.id);
+              }}
+              className={`p-1 rounded text-xs flex items-center gap-1 ${
+                commentsCount > 0
+                  ? 'text-terracotta bg-terracotta-soft font-semibold'
+                  : 'text-muted hover:text-ink hover:bg-bg'
+              }`}
+              title="Commentaires"
+            >
+              <MessageSquare className="w-3.5 h-3.5" />
+              {commentsCount > 0 && <span>{commentsCount}</span>}
+            </button>
 
-      <div className="flex-1 min-w-0">{renderBlockBody()}</div>
-
-      {/* Toolbar actions */}
-      <div
-        className={`flex items-center gap-1 flex-shrink-0 self-start transition-opacity ${
-          isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-        }`}
-      >
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleComment(block.id);
-          }}
-          className={`p-1.5 rounded text-xs flex items-center gap-1 ${
-            commentsCount > 0
-              ? 'text-terracotta bg-terracotta-soft font-semibold'
-              : 'text-muted hover:text-ink hover:bg-bg'
-          }`}
-          title="Commentaires"
-        >
-          <MessageSquare className="w-3.5 h-3.5" />
-          {commentsCount > 0 && <span>{commentsCount}</span>}
-        </button>
-
-        {/* Info tooltip */}
-        <div className="relative group/info">
-          <span className="p-1.5 text-muted hover:text-ink rounded cursor-default block">
-            <Info className="w-3.5 h-3.5" />
-          </span>
-          <div className="hidden group-hover/info:block absolute right-0 bottom-full mb-1 w-52 p-2 bg-ink text-white text-[11px] rounded-lg shadow-xl z-30 pointer-events-none">
-            <div>✏️ Créé par <strong>{createdByName}</strong></div>
-            {block.created_at && <div>📅 {fmtDate(block.created_at)}</div>}
-            {updatedByName && (
-              <div className="mt-1 pt-1 border-t border-white/20">
-                🔄 Modifié par <strong>{updatedByName}</strong>
-                {block.updated_at && <div>📅 {fmtDate(block.updated_at)}</div>}
+            {/* Info tooltip */}
+            <div className="relative group/info">
+              <span className="p-1 text-muted hover:text-ink rounded cursor-default block">
+                <Info className="w-3 h-3" />
+              </span>
+              <div className="hidden group-hover/info:block absolute right-0 bottom-full mb-1 w-52 p-2 bg-ink text-white text-[11px] rounded-lg shadow-xl z-30 pointer-events-none">
+                <div>✏️ Créé par <strong>{createdByName}</strong></div>
+                {block.created_at && <div>📅 {fmtDate(block.created_at)}</div>}
+                {updatedByName && (
+                  <div className="mt-1 pt-1 border-t border-white/20">
+                    🔄 Modifié par <strong>{updatedByName}</strong>
+                    {block.updated_at && <div>📅 {fmtDate(block.updated_at)}</div>}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        </div>
+            </div>
 
-        {!locked && (
-          <>
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 onOpenEmojiPicker(block.id);
               }}
-              className="p-1.5 text-muted hover:text-ink hover:bg-bg rounded"
+              className="p-1 text-muted hover:text-ink hover:bg-bg rounded"
               title="Insérer un émoji"
             >
               <Smile className="w-3.5 h-3.5" />
@@ -320,7 +312,7 @@ export const BlockItem: React.FC<BlockItemProps> = ({
                   e.stopPropagation();
                   setShowTypeMenu(!showTypeMenu);
                 }}
-                className="p-1.5 text-muted hover:text-ink hover:bg-bg rounded"
+                className="p-1 text-muted hover:text-ink hover:bg-bg rounded"
                 title="Changer de type"
               >
                 <ArrowRightLeft className="w-3.5 h-3.5" />
@@ -329,7 +321,7 @@ export const BlockItem: React.FC<BlockItemProps> = ({
               {showTypeMenu && (
                 <div
                   onClick={(e) => e.stopPropagation()}
-                  className="absolute right-0 top-full mt-1 w-44 bg-surface border border-border rounded-xl shadow-xl p-1 z-40"
+                  className="absolute right-0 top-full mt-1 w-48 bg-surface border border-border rounded-xl shadow-xl p-2 z-40"
                 >
                   <div className="text-[10px] font-bold uppercase tracking-wider text-muted px-2 py-1">
                     Changer le type
@@ -352,7 +344,7 @@ export const BlockItem: React.FC<BlockItemProps> = ({
                         onChangeType(block, t.type as BlockType);
                         setShowTypeMenu(false);
                       }}
-                      className={`w-full text-left px-2.5 py-1.5 text-xs rounded-lg hover:bg-bg ${
+                      className={`w-full text-left px-2 py-1.5 text-xs rounded-lg hover:bg-bg ${
                         block.type === t.type ? 'bg-terracotta-soft text-terracotta font-semibold' : 'text-ink'
                       }`}
                     >
@@ -368,7 +360,7 @@ export const BlockItem: React.FC<BlockItemProps> = ({
                 e.stopPropagation();
                 onDuplicate(block);
               }}
-              className="p-1.5 text-muted hover:text-ink hover:bg-bg rounded"
+              className="p-1 text-muted hover:text-ink hover:bg-bg rounded"
               title="Dupliquer"
             >
               <Copy className="w-3.5 h-3.5" />
@@ -379,7 +371,7 @@ export const BlockItem: React.FC<BlockItemProps> = ({
                 e.stopPropagation();
                 onMoveToPage(block);
               }}
-              className="p-1.5 text-muted hover:text-ink hover:bg-bg rounded"
+              className="p-1 text-muted hover:text-ink hover:bg-bg rounded"
               title="Déplacer vers un autre cours"
             >
               <ArrowUpRight className="w-3.5 h-3.5" />
@@ -390,14 +382,69 @@ export const BlockItem: React.FC<BlockItemProps> = ({
                 e.stopPropagation();
                 onDelete(block);
               }}
-              className="p-1.5 text-muted hover:text-terracotta hover:bg-bg rounded"
+              className="p-1 text-muted hover:text-terracotta hover:bg-bg rounded"
               title="Supprimer"
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>
-          </>
-        )}
+          </div>
+        </div>
+      )}
+
+      {/* Main Content Area with dynamic padding when actions are shown */}
+      <div
+        className={`flex-1 min-w-0 w-full py-2 px-3 ${
+          !locked && shouldShowActions ? 'pt-4' : ''
+        } transition-all duration-200`}
+      >
+        {renderBlockBody()}
       </div>
+
+      {/* Drag handle on left */}
+      {!locked && (
+        <div className="absolute left-0 top-1/2 -translate-y-1/2 flex items-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-1 text-muted cursor-grab active:cursor-grabbing">
+          <GripVertical className="w-3.5 h-3.5" />
+        </div>
+      )}
+
+      {/* Toggle children */}
+      {isToggleOpen && (
+        <div className="ml-4 pl-3 border-l-2 border-green-soft mt-2 space-y-2 w-full">
+          {childBlocks.map((child) => (
+            <BlockItem
+              key={child.id}
+              block={child}
+              locked={locked}
+              activeBlockId={activeBlockId}
+              commentsCount={0}
+              openCommentBlockId={openCommentBlockId}
+              openToggles={openToggles}
+              profileMap={profileMap}
+              onSelectBlock={onSelectBlock}
+              onUpdateContent={onUpdateContent}
+              onChangeType={onChangeType}
+              onDuplicate={onDuplicate}
+              onMoveToPage={onMoveToPage}
+              onDelete={onDelete}
+              onToggleComment={onToggleComment}
+              onOpenEmojiPicker={onOpenEmojiPicker}
+              onOpenSongPicker={onOpenSongPicker}
+              onToggleCollapse={onToggleCollapse}
+              onAddChildBlock={onAddChildBlock}
+              onReorderBlock={onReorderBlock}
+            />
+          ))}
+          {!locked && (
+            <button
+              onClick={() => onAddChildBlock(block.id)}
+              className="text-xs text-muted hover:text-ink hover:bg-bg px-2 py-1 rounded-md flex items-center gap-1"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Ajouter un élément ici</span>
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 };
