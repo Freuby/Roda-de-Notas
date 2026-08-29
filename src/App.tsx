@@ -9,8 +9,10 @@ import { SongPickerModal } from './components/SongPickerModal';
 import { EmojiPickerModal } from './components/EmojiPickerModal';
 import { GlobalSearchModal } from './components/GlobalSearchModal';
 import { MoveBlockModal } from './components/MoveBlockModal';
+import { Toast } from './components/Toast';
+import { downloadSpaceArchive } from './lib/archive';
 import { useRodaData } from './hooks/useRodaData';
-import { Block, NotificationItem } from './types';
+import { Block, Space, NotificationItem } from './types';
 import { Menu, Search } from 'lucide-react';
 
 export const App: React.FC = () => {
@@ -24,6 +26,16 @@ export const App: React.FC = () => {
   const [movingBlock, setMovingBlock] = useState<Block | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
+
+  // Toast feedback state
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage((cur) => (cur === msg ? null : cur));
+    }, 2400);
+  };
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -67,6 +79,107 @@ export const App: React.FC = () => {
         data.setCurrentPageId(notif.page_id);
         data.setOpenCommentBlockId(notif.block_id);
       }
+    }
+  };
+
+  const handleArchiveSpace = async (space: Space) => {
+    showToast('Génération de l\'archive…');
+    const { data: spacePages } = await supabase
+      .from('pages')
+      .select('*')
+      .eq('space_id', space.id)
+      .order('order_index');
+    if (!spacePages) return;
+
+    const pageIds = spacePages.map((p) => p.id);
+    let spaceBlocks: Block[] = [];
+    if (pageIds.length > 0) {
+      const { data: bData } = await supabase
+        .from('blocks')
+        .select('*')
+        .in('page_id', pageIds)
+        .order('order_index');
+      spaceBlocks = (bData as Block[]) || [];
+    }
+
+    downloadSpaceArchive(space, spacePages, spaceBlocks);
+    showToast('Archive téléchargée ✓');
+  };
+
+  const handleImportArchive = async (file: File) => {
+    showToast('Lecture de l\'archive…');
+    try {
+      const text = await file.text();
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(text, 'text/html');
+      const dataEl = doc.getElementById('roda-archive-data');
+      if (!dataEl) {
+        showToast('Fichier non reconnu');
+        return;
+      }
+
+      const payload = JSON.parse(dataEl.textContent || '{}');
+      const { space, pages: impPages, blocks: impBlocks } = payload;
+      if (!space || !impPages) return;
+
+      const maxOrder = data.spaces.reduce((m, s) => Math.max(m, s.order_index || 0), -1);
+      const { data: newSpace } = await supabase
+        .from('spaces')
+        .insert({
+          name: `${space.name} (importé)`,
+          created_by: session.user.id,
+          order_index: maxOrder + 1,
+        })
+        .select()
+        .single();
+
+      if (!newSpace) return;
+
+      const pageIdMap: Record<string, string> = {};
+      for (const p of impPages) {
+        const { data: newPage } = await supabase
+          .from('pages')
+          .insert({
+            space_id: newSpace.id,
+            title: p.title,
+            created_by: session.user.id,
+            order_index: p.order_index,
+            locked: false,
+          })
+          .select()
+          .single();
+        if (newPage) pageIdMap[p.id] = newPage.id;
+      }
+
+      const blockIdMap: Record<string, string> = {};
+      const sorted = [...(impBlocks || [])].sort(
+        (a, b) => (a.parent_block_id ? 1 : 0) - (b.parent_block_id ? 1 : 0)
+      );
+
+      for (const b of sorted) {
+        const newPageId = pageIdMap[b.page_id];
+        if (!newPageId) continue;
+        const newParentId = b.parent_block_id ? blockIdMap[b.parent_block_id] : null;
+
+        const { data: newBlock } = await supabase
+          .from('blocks')
+          .insert({
+            page_id: newPageId,
+            type: b.type,
+            content: b.content,
+            parent_block_id: newParentId,
+            order_index: b.order_index,
+            created_by: session.user.id,
+          })
+          .select()
+          .single();
+        if (newBlock) blockIdMap[b.id] = newBlock.id;
+      }
+
+      showToast('Archive importée ✓');
+      window.location.reload();
+    } catch (err) {
+      showToast('Erreur lors de l\'import');
     }
   };
 
@@ -118,8 +231,13 @@ export const App: React.FC = () => {
         }}
         onRenameSpace={data.handleRenameSpace}
         onDeleteSpace={data.handleDeleteSpace}
+        onArchiveSpace={handleArchiveSpace}
+        onImportArchive={handleImportArchive}
         onSelectPage={data.setCurrentPageId}
-        onDuplicatePage={data.handleDuplicatePage}
+        onDuplicatePage={async (p) => {
+          await data.handleDuplicatePage(p);
+          showToast('Cours dupliqué ✓');
+        }}
         onDeletePage={data.handleDeletePage}
         onCreateSpace={data.handleCreateSpace}
         onCreatePage={data.handleCreatePage}
@@ -153,7 +271,10 @@ export const App: React.FC = () => {
               onSelectBlock={setActiveBlockId}
               onUpdateBlockContent={data.handleUpdateBlockContent}
               onChangeBlockType={(b, type) => data.handleChangeBlockType(b, type, setSongPickerBlockId)}
-              onDuplicateBlock={data.handleDuplicateBlock}
+              onDuplicateBlock={async (b) => {
+                await data.handleDuplicateBlock(b);
+                showToast('Bloc dupliqué ✓');
+              }}
               onMoveBlockToPage={(b) => setMovingBlock(b)}
               onDeleteBlock={data.handleDeleteBlock}
               onAddBlock={(type, parentId) => data.handleAddBlock(type, parentId, setSongPickerBlockId)}
@@ -199,6 +320,7 @@ export const App: React.FC = () => {
           onMove={(targetPageId) => {
             data.handleMoveBlockToPage(movingBlock, targetPageId);
             setMovingBlock(null);
+            showToast('Bloc déplacé ✓');
           }}
           onClose={() => setMovingBlock(null)}
         />
@@ -237,6 +359,9 @@ export const App: React.FC = () => {
           onClose={() => setEmojiPickerBlockId(null)}
         />
       )}
+
+      {/* Toast popup */}
+      <Toast message={toastMessage} />
     </div>
   );
 };

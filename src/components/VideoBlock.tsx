@@ -1,7 +1,7 @@
 import React from 'react';
 import { Block } from '../types';
 import { detectVideoEmbed } from '../lib/utils';
-import { Play, ExternalLink } from 'lucide-react';
+import { Play, ExternalLink, Camera } from 'lucide-react';
 
 interface VideoBlockProps {
   block: Block;
@@ -20,7 +20,7 @@ export const VideoBlock: React.FC<VideoBlockProps> = ({ block, locked, onUpdate 
           type="text"
           value={content.url || ''}
           onChange={(e) => onUpdate({ url: e.target.value })}
-          placeholder="https://youtu.be/..."
+          placeholder="Collez un lien YouTube, Instagram ou Facebook…"
           className="w-full text-xs px-3 py-2 bg-surface border border-border rounded-lg outline-none focus:border-terracotta text-ink"
         />
       )}
@@ -37,6 +37,18 @@ export const VideoBlock: React.FC<VideoBlockProps> = ({ block, locked, onUpdate 
         </div>
       )}
 
+      {videoInfo && videoInfo.platform === 'facebook' && (
+        <div className="relative w-full pb-[56.25%] rounded-xl overflow-hidden bg-black border border-border shadow-sm">
+          <iframe
+            src={videoInfo.embedUrl}
+            title="Vidéo Facebook"
+            className="absolute inset-0 w-full h-full border-0"
+            allow="autoplay; encrypted-media; picture-in-picture"
+            allowFullScreen
+          />
+        </div>
+      )}
+
       {videoInfo && (
         <div className="pt-1">
           <a
@@ -45,8 +57,15 @@ export const VideoBlock: React.FC<VideoBlockProps> = ({ block, locked, onUpdate 
             rel="noopener noreferrer"
             className="text-xs text-terracotta hover:underline inline-flex items-center gap-1 font-medium"
           >
-            <Play className="w-3 h-3 fill-terracotta" />
-            <span>Regarder sur {videoInfo.platform} (si la vidéo ne s'affiche pas ci-dessus)</span>
+            {videoInfo.platform === 'instagram' ? (
+              <Camera className="w-3.5 h-3.5" />
+            ) : (
+              <Play className="w-3.5 h-3.5 fill-terracotta" />
+            )}
+            <span>
+              Regarder sur {videoInfo.platform}
+              {videoInfo.platform === 'instagram' ? ' (ouvrir le post / reel)' : ' (lien externe)'}
+            </span>
           </a>
         </div>
       )}

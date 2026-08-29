@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Space, Page, NotificationItem } from '../types';
 import {
   Search,
@@ -11,6 +11,8 @@ import {
   Trash2,
   Copy,
   MessageSquare,
+  Download,
+  Upload,
 } from 'lucide-react';
 import { SPACE_ICONS } from './Icons';
 import { supabase } from '../lib/supabase';
@@ -30,6 +32,8 @@ interface SidebarProps {
   onSelectSpace: (spaceId: string) => void;
   onRenameSpace: (space: Space) => void;
   onDeleteSpace: (space: Space) => void;
+  onArchiveSpace: (space: Space) => void;
+  onImportArchive: (file: File) => void;
   onSelectPage: (pageId: string) => void;
   onDuplicatePage: (page: Page) => void;
   onDeletePage: (page: Page) => void;
@@ -54,6 +58,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSelectSpace,
   onRenameSpace,
   onDeleteSpace,
+  onArchiveSpace,
+  onImportArchive,
   onSelectPage,
   onDuplicatePage,
   onDeletePage,
@@ -65,6 +71,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const [notifOpen, setNotifOpen] = useState(false);
   const [activeSpaceMenuId, setActiveSpaceMenuId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const activeSpace = spaces.find((s) => s.id === currentSpaceId);
   const unreadCount = notifications.filter((n) => !n.seen).length;
@@ -177,7 +184,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     {activeSpaceMenuId === s.id && (
                       <div
                         onClick={(e) => e.stopPropagation()}
-                        className="absolute right-2 top-9 bg-surface border border-border rounded-xl shadow-xl p-1 z-40 w-36 text-xs"
+                        className="absolute right-2 top-9 bg-surface border border-border rounded-xl shadow-xl p-1 z-40 w-44 text-xs space-y-0.5"
                       >
                         <button
                           onClick={() => {
@@ -191,10 +198,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         </button>
                         <button
                           onClick={() => {
+                            onArchiveSpace(s);
+                            setActiveSpaceMenuId(null);
+                          }}
+                          className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-bg text-ink"
+                        >
+                          <Download className="w-3 h-3 text-muted" />
+                          <span>Archiver en HTML</span>
+                        </button>
+                        <button
+                          onClick={() => {
                             onDeleteSpace(s);
                             setActiveSpaceMenuId(null);
                           }}
-                          className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-bg text-terracotta"
+                          className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-bg text-terracotta font-semibold"
                         >
                           <Trash2 className="w-3 h-3" />
                           <span>Supprimer</span>
@@ -204,6 +221,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   </div>
                 );
               })}
+            </div>
+
+            {/* Import archive button */}
+            <div className="pt-2">
+              <input
+                type="file"
+                ref={fileInputRef}
+                accept=".html"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) onImportArchive(file);
+                  if (fileInputRef.current) fileInputRef.current.value = '';
+                }}
+                className="hidden"
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full flex items-center gap-2 px-2.5 py-1.5 text-xs text-muted hover:text-ink hover:bg-bg rounded-lg transition-colors"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                <span>Importer une archive HTML</span>
+              </button>
             </div>
           </div>
 
@@ -248,7 +287,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       className="p-1 text-muted hover:text-ink rounded"
                       title="Dupliquer ce cours"
                     >
-                      <Copy className="w-3 h-3" />
+                      <Copy className="w-3.5 h-3.5" />
                     </button>
                     {!p.locked && (
                       <button
@@ -256,7 +295,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         className="p-1 text-muted hover:text-terracotta rounded"
                         title="Supprimer"
                       >
-                        <Trash2 className="w-3 h-3" />
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     )}
                   </div>
