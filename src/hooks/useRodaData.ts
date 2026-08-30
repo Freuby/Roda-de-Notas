@@ -359,6 +359,36 @@ export function useRodaData(session: any) {
     await supabase.from('pages').update({ locked: nextLocked }).eq('id', page.id);
   };
 
+  // Page reordering
+  const handleReorderPage = async (draggedId: string, targetId: string, position: 'before' | 'after') => {
+    if (draggedId === targetId) return;
+
+    // Local reordering
+    const filtered = pages.filter((p) => p.id !== draggedId);
+    const targetIdx = filtered.findIndex((p) => p.id === targetId);
+    const insertAt = position === 'before' ? targetIdx : targetIdx + 1;
+    const draggedPage = pages.find((p) => p.id === draggedId);
+    if (!draggedPage) return;
+
+    filtered.splice(insertAt, 0, draggedPage);
+    
+    const updates: { id: string; order_index: number }[] = [];
+    const next = filtered.map((p, i) => {
+      if (p.order_index !== i) {
+        p.order_index = i;
+        updates.push({ id: p.id, order_index: i });
+      }
+      return p;
+    });
+
+    setPages(next);
+
+    // Persist to DB
+    for (const u of updates) {
+      await supabase.from('pages').update({ order_index: u.order_index }).eq('id', u.id);
+    }
+  };
+
   // Actions: Blocks
   const handleAddBlock = async (
     type: BlockType,
@@ -587,6 +617,7 @@ export function useRodaData(session: any) {
     handleDeletePage,
     handleUpdatePageTitle,
     handleToggleLock,
+    handleReorderPage,
     handleAddBlock,
     handleUpdateBlockContent,
     handleChangeBlockType,

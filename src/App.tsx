@@ -424,6 +424,11 @@ export const App: React.FC = () => {
     }
   };
 
+  // Page reordering handler
+  const handleReorderPages = (draggedId: string, targetId: string, position: 'before' | 'after') => {
+    data.handleReorderPage(draggedId, targetId, position);
+  };
+
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-bg text-muted font-display text-sm">
@@ -490,6 +495,7 @@ export const App: React.FC = () => {
         onOpenSearch={() => setSearchOpen(true)}
         onMarkAllRead={data.markAllNotificationsRead}
         onSelectNotification={handleSelectNotification}
+        onReorderPages={handleReorderPages}
       />
 
       {/* Main Content Area */}
