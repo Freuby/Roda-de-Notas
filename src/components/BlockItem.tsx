@@ -80,7 +80,11 @@ export const BlockItem: React.FC<BlockItemProps> = ({
       suppressContentEditableWarning
       data-placeholder={placeholder}
       onBlur={(e) => onUpdateContent(block, { text: e.currentTarget.innerText })}
-      className={`outline-none min-w-[60px] flex-1 text-ink ${className} ${
+      onClick={(e) => {
+        e.stopPropagation();
+        onSelectBlock(block.id);
+      }}
+      className={`outline-none min-w-[60px] flex-1 text-ink cursor-text ${className} ${
         !content.text && !locked ? 'before:content-[attr(data-placeholder)] before:text-muted' : ''
       }`}
     >
@@ -153,7 +157,10 @@ export const BlockItem: React.FC<BlockItemProps> = ({
             <div className="flex items-center gap-2 font-display font-semibold text-base text-green">
               <button
                 type="button"
-                onClick={() => onToggleCollapse(block.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleCollapse(block.id);
+                }}
                 className={`p-1 text-green hover:bg-green-soft rounded transition-transform ${
                   isToggleOpen ? 'rotate-90' : ''
                 }`}
@@ -191,7 +198,10 @@ export const BlockItem: React.FC<BlockItemProps> = ({
                 ))}
                 {!locked && (
                   <button
-                    onClick={() => onAddChildBlock(block.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAddChildBlock(block.id);
+                    }}
                     className="text-xs text-muted hover:text-ink hover:bg-bg px-2 py-1 rounded-md flex items-center gap-1"
                   >
                     <Plus className="w-3.5 h-3.5" />
@@ -207,7 +217,7 @@ export const BlockItem: React.FC<BlockItemProps> = ({
     }
   };
 
-  // Drag and drop handlers
+  // Drag and drop handlers - ONLY on the drag handle, not the whole block
   const handleDragStart = (e: React.DragEvent) => {
     if (locked || !onReorderBlock) return;
     e.dataTransfer.effectAllowed = 'move';
@@ -243,32 +253,15 @@ export const BlockItem: React.FC<BlockItemProps> = ({
     setDropPos(null);
   };
 
-  // Prevent drag when clicking on buttons
-  const handleMouseDown = (e: React.MouseEvent) => {
-    // If the click is on a button or interactive element, prevent drag
-    const target = e.target as HTMLElement;
-    if (target.closest('button, [role="button"], .no-drag')) {
-      e.stopPropagation();
-    }
-  };
-
   return (
     <div
       ref={containerRef}
-      draggable={!locked && !!onReorderBlock}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-      onMouseDown={handleMouseDown}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => {
         setIsHovered(false);
         setShowInfo(false);
         setShowTypeMenu(false);
       }}
-      onClick={() => onSelectBlock(block.id)}
       className={`group relative flex flex-col items-start gap-0 py-1 rounded-lg hover:bg-black/[0.015] transition-all duration-200 block-animated ${
         isActive || isHovered ? 'is-active is-hovered' : ''
       } ${
@@ -295,7 +288,7 @@ export const BlockItem: React.FC<BlockItemProps> = ({
               {commentsCount > 0 && <span>{commentsCount}</span>}
             </button>
 
-            {/* Info tooltip - now clickable */}
+            {/* Info tooltip - clickable */}
             <div className="relative">
               <button
                 onClick={(e) => {
@@ -419,18 +412,27 @@ export const BlockItem: React.FC<BlockItemProps> = ({
         </div>
       )}
 
-      {/* Main Content Area with dynamic padding when actions are shown */}
+      {/* Main Content Area - clicking here selects the block */}
       <div
+        onClick={() => onSelectBlock(block.id)}
         className={`flex-1 min-w-0 w-full py-2 px-3 ${
           !locked && shouldShowActions ? 'pt-4 block-content-padded' : ''
-        } transition-all duration-200`}
+        } transition-all duration-200 cursor-pointer`}
       >
         {renderBlockBody()}
       </div>
 
-      {/* Drag handle on left */}
-      {!locked && (
-        <div className="absolute left-0 top-1/2 -translate-y-1/2 flex items-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-1 text-muted cursor-grab active:cursor-grabbing">
+      {/* Drag handle on left - ONLY this initiates drag */}
+      {!locked && onReorderBlock && (
+        <div
+          draggable
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          className="absolute left-0 top-1/2 -translate-y-1/2 flex items-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-1 text-muted cursor-grab active:cursor-grabbing"
+        >
           <GripVertical className="w-3.5 h-3.5" />
         </div>
       )}
@@ -464,7 +466,10 @@ export const BlockItem: React.FC<BlockItemProps> = ({
           ))}
           {!locked && (
             <button
-              onClick={() => onAddChildBlock(block.id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onAddChildBlock(block.id);
+              }}
               className="text-xs text-muted hover:text-ink hover:bg-bg px-2 py-1 rounded-md flex items-center gap-1"
             >
               <Plus className="w-3.5 h-3.5" />
