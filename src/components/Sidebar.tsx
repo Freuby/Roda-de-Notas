@@ -72,6 +72,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [notifOpen, setNotifOpen] = useState(false);
   const [activeSpaceMenuId, setActiveSpaceMenuId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Page drag state
+  const [draggingPageId, setDraggingPageId] = useState<string | null>(null);
+  const [dragOffset, setDragOffset] = useState(0);
 
   const activeSpace = spaces.find((s) => s.id === currentSpaceId);
   const unreadCount = notifications.filter((n) => !n.seen).length;
@@ -264,60 +268,56 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
 
             <div className="space-y-1">
-              {pages.map((p) => (
-                <div key={p.id} className="group flex items-center justify-between rounded-xl">
-                  <button
-                    onClick={() => {
-                      onSelectPage(p.id);
-                      onClose();
-                    }}
-                    className={`flex-1 flex items-center gap-2 px-3 py-2 rounded-xl text-xs transition-colors text-left min-w-0 ${
-                      p.id === currentPageId
-                        ? 'bg-green-soft text-green font-bold'
-                        : 'hover:bg-bg text-ink font-medium'
-                    }`}
+              {pages.map((p, idx) => {
+                const isActive = p.id === currentPageId;
+                
+                return (
+                  <div
+                    key={p.id}
+                    className="group flex items-center justify-between rounded-xl"
+                    onDragStart={(e) => handlePageDragStart(e, p.id)}
+                    onDragEnd={(e) => handlePageDragEnd(e)}
+                    onDragOver={(e) => handlePageDragOver(e)}
+                    onDragLeave={(e) => handlePageDragLeave(e)}
+                    onDrop={(e) => handlePageDrop(e, p.id)}
+                    draggable={!isOpen || draggingPageId !== p.id} // Disable drag when sidebar is closed or different page is dragging
                   >
-                    <span className="truncate flex-1">{p.title || 'Sans titre'}</span>
-                    {p.locked && <Lock className="w-3 h-3 text-muted flex-shrink-0" />}
-                  </button>
-
-                  <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 pr-1">
                     <button
-                      onClick={() => onDuplicatePage(p)}
-                      className="p-1 text-muted hover:text-ink rounded"
-                      title="Dupliquer ce cours"
+                      onClick={() => {
+                        onSelectPage(p.id);
+                        onClose();
+                      }}
+                      className={`flex-1 flex items-center gap-2 px-3 py-2 rounded-xl text-xs transition-colors text-left min-w-0 ${
+                        isActive
+                          ? 'bg-green-soft text-green font-bold'
+                          : 'hover:bg-bg text-ink font-medium'
+                      }`}
                     >
-                      <Copy className="w-3.5 h-3.5" />
+                      <span className="truncate flex-1">{p.title || 'Sans titre'}</span>
+                      {p.locked && <Lock className="w-3 h-3 text-muted flex-shrink-0" />}
                     </button>
-                    {!p.locked && (
+
+                    <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 pr-1">
                       <button
-                        onClick={() => onDeletePage(p)}
+                        onClick={() => onDuplicatePage(p)}
+                        className="p-1 text-muted hover:text-ink rounded"
+                        title="Dupliquer ce cours"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                      </button>
+                      {!p.locked && (
+                        <button
+                          onClick={() => onDeletePage(p)}
                         className="p-1 text-muted hover:text-terracotta rounded"
                         title="Supprimer"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     )}
+                    </div>
                   </div>
-                </div>
-              ))}
-
-              {currentSpaceId && (
-                <button
-                  onClick={() => {
-                    onSelectPage('__repertoire__');
-                    onClose();
-                  }}
-                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs italic text-left border border-dashed border-border transition-colors mt-2 ${
-                    currentPageId === '__repertoire__'
-                      ? 'bg-green-soft text-green font-bold border-green'
-                      : 'hover:bg-bg text-muted'
-                  }`}
-                >
-                  <Music className="w-3.5 h-3.5" />
-                  <span>Répertoire des chants</span>
-                </button>
-              )}
+                );
+              })}
             </div>
           </div>
         </div>
@@ -365,4 +365,109 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </aside>
     </>
   );
+
+  // Page drag handlers
+  function handlePageDragStart(e: React.DragEvent, pageId: string) {
+    setDraggingPageId(pageId);
+    setDragOffset(e.clientY);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', pageId);
+    
+    // Add dragging class to the page row being dragged
+    const pageRow = document.querySelector(`[data-page-row="${pageId}"]`);
+    if (pageRow) {
+      pageRow.classList.add('page-dragging');
+    }
+  }
+
+  function handlePageDragEnd(e: React.DragEvent) {
+    setDraggingPageId(null);
+    setDragOffset(0);
+    
+    // Remove dragging class from all page rows
+    document.querySelectorAll('.page-row').forEach((row) => {
+      row.classList.remove('page-dragging');
+    });
+    
+    // Remove drop indicators
+    document.querySelectorAll('.page-drop-before, .page-drop-after').forEach((el) => {
+      el.classList.remove('page-drop-before', 'page-drop-after');
+    });
+  }
+
+  function handlePageDragOver(e: React.DragEvent) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    
+    // Remove previous drop indicators
+    document.querySelectorAll('.page-drop-before, .page-drop-after').forEach((el) => {
+      el.classList.remove('page-drop-before', 'page-drop-after');
+    });
+    
+    const target = e.target.closest('.page-row');
+    if (!target || target.classList.contains('page-dragging')) return;
+    
+    const rect = target.getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+    
+    if (e.clientY < midY) {
+      target.classList.add('page-drop-before');
+    } else {
+      target.classList.add('page-drop-after');
+    }
+  }
+
+  function handlePageDragLeave(e: React.DragEvent) {
+    const target = e.target.closest('.page-row');
+    if (target) {
+      target.classList.remove('page-drop-before', 'page-drop-after');
+    }
+  }
+
+  function handlePageDrop(e: React.DragEvent, targetPageId: string) {
+    e.preventDefault();
+    const draggedId = e.dataTransfer.getData('text/plain');
+    
+    if (!draggedId || draggedId === targetPageId) return;
+    
+    // Find the dragged page and target page
+    const draggedPage = pages.find((p) => p.id === draggedId);
+    const targetPage = pages.find((p) => p.id === targetPageId);
+    
+    if (!draggedPage || !targetPage) return;
+    
+    // Determine drop position
+    const dropPos = e.clientY < (e.target as HTMLElement).getBoundingClientRect().top + (e.target as HTMLElement).getBoundingClientRect().height / 2 ? 'before' : 'after';
+    
+    // Reorder pages in state
+    const draggedIdx = pages.findIndex((p) => p.id === draggedId);
+    const targetIdx = pages.findIndex((p) => p.id === targetPageId);
+    
+    const newPages = [...pages];
+    
+    if (dropPos === 'before') {
+      // Remove from current position and insert before target
+      const [moved] = newPages.splice(draggedIdx, 1);
+      newPages.splice(targetIdx, 0, moved);
+    } else {
+      // Remove from current position and insert after target
+      const [moved] = newPages.splice(draggedIdx, 1);
+      newPages.splice(targetIdx + 1, 0, moved);
+    }
+    
+    // Update order_index for all pages
+    newPages.forEach((p, i) => {
+      p.order_index = i;
+    });
+    
+    setPages(newPages);
+    
+    // Persist to Supabase
+    for (const p of newPages) {
+      supabase.from('pages').update({ order_index: p.order_index }).eq('id', p.id);
+    }
+    
+    // Re-render
+    render();
+  }
 };
