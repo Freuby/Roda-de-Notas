@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Block, BlockType } from '../types';
 import { SongBlock } from './SongBlock';
 import { VideoBlock } from './VideoBlock';
@@ -39,6 +39,26 @@ interface BlockItemProps {
   onReorderBlock?: (draggedId: string, targetId: string, position: 'before' | 'after') => void;
 }
 
+// Portal component for rendering menus outside the block hierarchy
+const Portal: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [mounted, setMounted] = useState(false);
+  const elRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    elRef.current = document.createElement('div');
+    document.body.appendChild(elRef.current);
+    setMounted(true);
+    return () => {
+      if (elRef.current) {
+        document.body.removeChild(elRef.current);
+      }
+    };
+  }, []);
+
+  if (!mounted || !elRef.current) return null;
+  return <>{children}</>;
+};
+
 export const BlockItem: React.FC<BlockItemProps> = ({
   block,
   childBlocks = [],
@@ -65,6 +85,10 @@ export const BlockItem: React.FC<BlockItemProps> = ({
   const [showInfo, setShowInfo] = useState(false);
   const [dropPos, setDropPos] = useState<'before' | 'after' | null>(null);
   const [isHovered, setIsHovered] = useState(false);
+  const [typeMenuPos, setTypeMenuPos] = useState({ x: 0, y: 0 });
+  const [infoMenuPos, setInfoMenuPos] = useState({ x: 0, y: 0 });
+  const typeButtonRef = useRef<HTMLButtonElement>(null);
+  const infoButtonRef = useRef<HTMLButtonElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const content = block.content || {};
   const isToggleOpen = openToggles.has(block.id);
@@ -73,6 +97,21 @@ export const BlockItem: React.FC<BlockItemProps> = ({
 
   const createdByName = profileMap[block.created_by] || 'Inconnu';
   const updatedByName = block.updated_by ? profileMap[block.updated_by] || 'Inconnu' : null;
+
+  // Update menu positions when buttons are clicked
+  const handleTypeMenuClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    setTypeMenuPos({ x: rect.left, y: rect.bottom + 4 });
+    setShowTypeMenu(!showTypeMenu);
+  };
+
+  const handleInfoClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    setInfoMenuPos({ x: rect.left, y: rect.bottom + 4 });
+    setShowInfo(!showInfo);
+  };
 
   const renderContentEditable = (placeholder: string, className = '') => (
     <div
@@ -217,7 +256,7 @@ export const BlockItem: React.FC<BlockItemProps> = ({
     }
   };
 
-  // Drag and drop handlers - ONLY on the drag handle, not the whole block
+  // Drag and drop handlers
   const handleDragStart = (e: React.DragEvent) => {
     if (locked || !onReorderBlock) return;
     e.dataTransfer.effectAllowed = 'move';
@@ -288,32 +327,15 @@ export const BlockItem: React.FC<BlockItemProps> = ({
               {commentsCount > 0 && <span>{commentsCount}</span>}
             </button>
 
-            {/* Info tooltip - clickable */}
-            <div className="relative">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowInfo(!showInfo);
-                }}
-                className="p-1 text-muted hover:text-ink rounded cursor-pointer block"
-                title="Informations"
-              >
-                <Info className="w-3 h-3" />
-              </button>
-              
-              {showInfo && (
-                <div className="absolute left-0 bottom-full mb-1 w-52 p-2 bg-ink text-white text-[11px] rounded-lg shadow-xl z-30 pointer-events-auto">
-                  <div>✏️ Créé par <strong>{createdByName}</strong></div>
-                  {block.created_at && <div>📅 {fmtDate(block.created_at)}</div>}
-                  {updatedByName && (
-                    <div className="mt-1 pt-1 border-t border-white/20">
-                      🔄 Modifié par <strong>{updatedByName}</strong>
-                      {block.updated_at && <div>📅 {fmtDate(block.updated_at)}</div>}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+            {/* Info tooltip - clickable, uses portal for proper positioning */}
+            <button
+              ref={infoButtonRef}
+              onClick={handleInfoClick}
+              className="p-1 text-muted hover:text-ink rounded cursor-pointer block"
+              title="Informations"
+            >
+              <Info className="w-3 h-3" />
+            </button>
 
             <button
               onClick={(e) => {
@@ -326,55 +348,14 @@ export const BlockItem: React.FC<BlockItemProps> = ({
               <Smile className="w-3.5 h-3.5" />
             </button>
 
-            <div className="relative">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowTypeMenu(!showTypeMenu);
-                }}
-                className="p-1 text-muted hover:text-ink hover:bg-bg rounded"
-                title="Changer de type"
-              >
-                <ArrowRightLeft className="w-3.5 h-3.5" />
-              </button>
-
-              {showTypeMenu && (
-                <div
-                  className="absolute left-0 top-full mt-1 w-48 bg-surface border border-border rounded-xl shadow-xl p-2 z-40"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-muted px-2 py-1">
-                    Changer le type
-                  </div>
-                  {[
-                    { type: 'heading', label: 'Titre H1' },
-                    { type: 'subheading', label: 'Sous-titre H2' },
-                    { type: 'paragraph', label: 'Texte' },
-                    { type: 'bullet', label: 'Liste à puces' },
-                    { type: 'numbered', label: 'Liste numérotée' },
-                    { type: 'callout', label: 'Encadré' },
-                    { type: 'video', label: 'Vidéo' },
-                    { type: 'song', label: 'Chant' },
-                    { type: 'toggle', label: 'Dépliant' },
-                    { type: 'divider', label: 'Séparateur' },
-                  ].map((t) => (
-                    <button
-                      key={t.type}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onChangeType(block, t.type as BlockType);
-                        setShowTypeMenu(false);
-                      }}
-                      className={`w-full text-left px-2 py-1.5 text-xs rounded-lg hover:bg-bg ${
-                        block.type === t.type ? 'bg-terracotta-soft text-terracotta font-semibold' : 'text-ink'
-                      }`}
-                    >
-                      {t.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            <button
+              ref={typeButtonRef}
+              onClick={handleTypeMenuClick}
+              className="p-1 text-muted hover:text-ink hover:bg-bg rounded"
+              title="Changer de type"
+            >
+              <ArrowRightLeft className="w-3.5 h-3.5" />
+            </button>
 
             <button
               onClick={(e) => {
@@ -479,5 +460,74 @@ export const BlockItem: React.FC<BlockItemProps> = ({
         </div>
       )}
     </div>
+  );
+
+  // Render menus in a portal to avoid overflow/positioning issues
+  return (
+    <>
+      {showTypeMenu && (
+        <Portal>
+          <div
+            className="fixed z-[9999] bg-surface border border-border rounded-xl shadow-xl p-2"
+            style={{ left: typeMenuPos.x, top: typeMenuPos.y }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowTypeMenu(false);
+            }}
+          >
+            <div className="text-[10px] font-bold uppercase tracking-wider text-muted px-2 py-1">
+              Changer le type
+            </div>
+            {[
+              { type: 'heading', label: 'Titre H1' },
+              { type: 'subheading', label: 'Sous-titre H2' },
+              { type: 'paragraph', label: 'Texte' },
+              { type: 'bullet', label: 'Liste à puces' },
+              { type: 'numbered', label: 'Liste numérotée' },
+              { type: 'callout', label: 'Encadré' },
+              { type: 'video', label: 'Vidéo' },
+              { type: 'song', label: 'Chant' },
+              { type: 'toggle', label: 'Dépliant' },
+              { type: 'divider', label: 'Séparateur' },
+            ].map((t) => (
+              <button
+                key={t.type}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onChangeType(block, t.type as BlockType);
+                  setShowTypeMenu(false);
+                }}
+                className={`w-full text-left px-2 py-1.5 text-xs rounded-lg hover:bg-bg ${
+                  block.type === t.type ? 'bg-terracotta-soft text-terracotta font-semibold' : 'text-ink'
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </Portal>
+      )}
+      {showInfo && (
+        <Portal>
+          <div
+            className="fixed z-[9999] bg-ink text-white text-[11px] rounded-lg shadow-xl p-2"
+            style={{ left: infoMenuPos.x, top: infoMenuPos.y }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowInfo(false);
+            }}
+          >
+            <div>✏️ Créé par <strong>{createdByName}</strong></div>
+            {block.created_at && <div>📅 {fmtDate(block.created_at)}</div>}
+            {updatedByName && (
+              <div className="mt-1 pt-1 border-t border-white/20">
+                🔄 Modifié par <strong>{updatedByName}</strong>
+                {block.updated_at && <div>📅 {fmtDate(block.updated_at)}</div>}
+              </div>
+            )}
+          </div>
+        </Portal>
+      )}
+    </>
   );
 };
