@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { Block, BlockType } from '../types';
 import { SongBlock } from './SongBlock';
 import { VideoBlock } from './VideoBlock';
@@ -62,10 +62,9 @@ export const BlockItem: React.FC<BlockItemProps> = ({
   onReorderBlock,
 }) => {
   const [showTypeMenu, setShowTypeMenu] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
   const [dropPos, setDropPos] = useState<'before' | 'after' | null>(null);
   const [isHovered, setIsHovered] = useState(false);
-  const [touchStartY, setTouchStartY] = useState<number | null>(null);
-  const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const content = block.content || {};
   const isToggleOpen = openToggles.has(block.id);
@@ -74,52 +73,6 @@ export const BlockItem: React.FC<BlockItemProps> = ({
 
   const createdByName = profileMap[block.created_by] || 'Inconnu';
   const updatedByName = block.updated_by ? profileMap[block.updated_by] || 'Inconnu' : null;
-
-  // Touch event handlers for mobile
-  const handleTouchStart = (e: React.TouchEvent) => {
-    if (locked) return;
-    setTouchStartY(e.touches[0].clientY);
-    setTouchStartX(e.touches[0].clientX);
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (locked || touchStartY === null) return;
-    const deltaY = e.touches[0].clientY - touchStartY;
-    const deltaX = e.touches[0].clientX - touchStartX;
-    
-    // Prevent scrolling when touching blocks
-    if (Math.abs(deltaY) < 10 && Math.abs(deltaX) < 10) {
-      e.preventDefault();
-    }
-  };
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (locked || touchStartY === null) return;
-    
-    const deltaY = e.changedTouches[0].clientY - touchStartY;
-    const deltaX = e.changedTouches[0].clientX - touchStartX;
-    
-    // Determine if this was a tap or swipe
-    const isTap = Math.abs(deltaY) < 10 && Math.abs(deltaX) < 10;
-    const isSwipe = Math.abs(deltaY) > 20 || Math.abs(deltaX) > 20;
-    
-    if (isTap) {
-      // Prevent double-tap zoom on contenteditable
-      e.preventDefault();
-      onSelectBlock(block.id);
-    } else if (isSwipe) {
-      // Handle swipe gestures for navigation
-      if (Math.abs(deltaY) > Math.abs(deltaX)) {
-        // Vertical swipe - could be used for expanding/collapsing toggles
-        if (block.type === 'toggle') {
-          onToggleCollapse(block.id);
-        }
-      }
-    }
-    
-    setTouchStartY(null);
-    setTouchStartX(null);
-  };
 
   const renderContentEditable = (placeholder: string, className = '') => (
     <div
@@ -254,7 +207,7 @@ export const BlockItem: React.FC<BlockItemProps> = ({
     }
   };
 
-  // Drag and drop handlers (only for non-toggle top-level blocks, not for children)
+  // Drag and drop handlers
   const handleDragStart = (e: React.DragEvent) => {
     if (locked || !onReorderBlock) return;
     e.dataTransfer.effectAllowed = 'move';
@@ -290,6 +243,15 @@ export const BlockItem: React.FC<BlockItemProps> = ({
     setDropPos(null);
   };
 
+  // Prevent drag when clicking on buttons
+  const handleMouseDown = (e: React.MouseEvent) => {
+    // If the click is on a button or interactive element, prevent drag
+    const target = e.target as HTMLElement;
+    if (target.closest('button, [role="button"], .no-drag')) {
+      e.stopPropagation();
+    }
+  };
+
   return (
     <div
       ref={containerRef}
@@ -299,11 +261,13 @@ export const BlockItem: React.FC<BlockItemProps> = ({
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
+      onMouseDown={handleMouseDown}
       onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onMouseLeave={() => {
+        setIsHovered(false);
+        setShowInfo(false);
+        setShowTypeMenu(false);
+      }}
       onClick={() => onSelectBlock(block.id)}
       className={`group relative flex flex-col items-start gap-0 py-1 rounded-lg hover:bg-black/[0.015] transition-all duration-200 block-animated ${
         isActive || isHovered ? 'is-active is-hovered' : ''
@@ -331,21 +295,31 @@ export const BlockItem: React.FC<BlockItemProps> = ({
               {commentsCount > 0 && <span>{commentsCount}</span>}
             </button>
 
-            {/* Info tooltip */}
-            <div className="relative group/info">
-              <span className="p-1 text-muted hover:text-ink rounded cursor-default block">
+            {/* Info tooltip - now clickable */}
+            <div className="relative">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowInfo(!showInfo);
+                }}
+                className="p-1 text-muted hover:text-ink rounded cursor-pointer block"
+                title="Informations"
+              >
                 <Info className="w-3 h-3" />
-              </span>
-              <div className="hidden group-hover/info:block absolute right-0 bottom-full mb-1 w-52 p-2 bg-ink text-white text-[11px] rounded-lg shadow-xl z-30 pointer-events-none">
-                <div>✏️ Créé par <strong>{createdByName}</strong></div>
-                {block.created_at && <div>📅 {fmtDate(block.created_at)}</div>}
-                {updatedByName && (
-                  <div className="mt-1 pt-1 border-t border-white/20">
-                    🔄 Modifié par <strong>{updatedByName}</strong>
-                    {block.updated_at && <div>📅 {fmtDate(block.updated_at)}</div>}
-                  </div>
-                )}
-              </div>
+              </button>
+              
+              {showInfo && (
+                <div className="absolute left-0 bottom-full mb-1 w-52 p-2 bg-ink text-white text-[11px] rounded-lg shadow-xl z-30 pointer-events-auto">
+                  <div>✏️ Créé par <strong>{createdByName}</strong></div>
+                  {block.created_at && <div>📅 {fmtDate(block.created_at)}</div>}
+                  {updatedByName && (
+                    <div className="mt-1 pt-1 border-t border-white/20">
+                      🔄 Modifié par <strong>{updatedByName}</strong>
+                      {block.updated_at && <div>📅 {fmtDate(block.updated_at)}</div>}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <button
@@ -373,8 +347,8 @@ export const BlockItem: React.FC<BlockItemProps> = ({
 
               {showTypeMenu && (
                 <div
+                  className="absolute left-0 top-full mt-1 w-48 bg-surface border border-border rounded-xl shadow-xl p-2 z-40"
                   onClick={(e) => e.stopPropagation()}
-                  className="absolute right-0 top-full mt-1 w-48 bg-surface border border-border rounded-xl shadow-xl p-2 z-40"
                 >
                   <div className="text-[10px] font-bold uppercase tracking-wider text-muted px-2 py-1">
                     Changer le type
@@ -393,7 +367,8 @@ export const BlockItem: React.FC<BlockItemProps> = ({
                   ].map((t) => (
                     <button
                       key={t.type}
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation();
                         onChangeType(block, t.type as BlockType);
                         setShowTypeMenu(false);
                       }}
@@ -439,15 +414,6 @@ export const BlockItem: React.FC<BlockItemProps> = ({
               title="Supprimer"
             >
               <Trash2 className="w-3.5 h-3.5" />
-            </button>
-
-            {/* New move block button */}
-            <button
-              onClick={() => onMoveToPage(block)}
-              className="p-1 text-muted hover:text-ink hover:bg-bg rounded"
-              title="Déplacer vers un autre cours"
-            >
-              <ArrowUpRight className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
