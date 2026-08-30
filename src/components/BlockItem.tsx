@@ -56,7 +56,19 @@ const Portal: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   }, []);
 
   if (!mounted || !elRef.current) return null;
-  return <>{children}</>;
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        zIndex: 9999,
+        pointerEvents: 'auto',
+      }}
+    >
+      {children}
+    </div>
+  );
 };
 
 export const BlockItem: React.FC<BlockItemProps> = ({
@@ -87,8 +99,6 @@ export const BlockItem: React.FC<BlockItemProps> = ({
   const [isHovered, setIsHovered] = useState(false);
   const [typeMenuPos, setTypeMenuPos] = useState({ x: 0, y: 0 });
   const [infoMenuPos, setInfoMenuPos] = useState({ x: 0, y: 0 });
-  const typeButtonRef = useRef<HTMLButtonElement>(null);
-  const infoButtonRef = useRef<HTMLButtonElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const content = block.content || {};
   const isToggleOpen = openToggles.has(block.id);
@@ -104,6 +114,7 @@ export const BlockItem: React.FC<BlockItemProps> = ({
     const rect = e.currentTarget.getBoundingClientRect();
     setTypeMenuPos({ x: rect.left, y: rect.bottom + 4 });
     setShowTypeMenu(!showTypeMenu);
+    setShowInfo(false);
   };
 
   const handleInfoClick = (e: React.MouseEvent) => {
@@ -111,7 +122,23 @@ export const BlockItem: React.FC<BlockItemProps> = ({
     const rect = e.currentTarget.getBoundingClientRect();
     setInfoMenuPos({ x: rect.left, y: rect.bottom + 4 });
     setShowInfo(!showInfo);
+    setShowTypeMenu(false);
   };
+
+  // Close menus on outside click
+  useEffect(() => {
+    if (showTypeMenu || showInfo) {
+      const handleOutsideClick = (e: MouseEvent) => {
+        const target = e.target as HTMLElement;
+        if (!target.closest('[data-block-menu]')) {
+          setShowTypeMenu(false);
+          setShowInfo(false);
+        }
+      };
+      document.addEventListener('mousedown', handleOutsideClick);
+      return () => document.removeEventListener('mousedown', handleOutsideClick);
+    }
+  }, [showTypeMenu, showInfo]);
 
   const renderContentEditable = (placeholder: string, className = '') => (
     <div
@@ -293,187 +320,181 @@ export const BlockItem: React.FC<BlockItemProps> = ({
   };
 
   return (
-    <div
-      ref={containerRef}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => {
-        setIsHovered(false);
-        setShowInfo(false);
-        setShowTypeMenu(false);
-      }}
-      className={`group relative flex flex-col items-start gap-0 py-1 rounded-lg hover:bg-black/[0.015] transition-all duration-200 block-animated ${
-        isActive || isHovered ? 'is-active is-hovered' : ''
-      } ${
-        dropPos === 'before' ? 'border-t-2 border-terracotta' : ''
-      } ${dropPos === 'after' ? 'border-b-2 border-terracotta' : ''}`}
-    >
-      {/* Action Bar - appears on hover/selection */}
-      {!locked && shouldShowActions && (
-        <div className="w-full flex items-center justify-between px-3 py-1.5 bg-bg/50 backdrop-blur-sm rounded-t-lg transition-all duration-200 block-action-bar">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleComment(block.id);
-              }}
-              className={`p-1 rounded text-xs flex items-center gap-1 ${
-                commentsCount > 0
-                  ? 'text-terracotta bg-terracotta-soft font-semibold'
-                  : 'text-muted hover:text-ink hover:bg-bg'
-              }`}
-              title="Commentaires"
-            >
-              <MessageSquare className="w-3.5 h-3.5" />
-              {commentsCount > 0 && <span>{commentsCount}</span>}
-            </button>
-
-            {/* Info tooltip - clickable, uses portal for proper positioning */}
-            <button
-              ref={infoButtonRef}
-              onClick={handleInfoClick}
-              className="p-1 text-muted hover:text-ink rounded cursor-pointer block"
-              title="Informations"
-            >
-              <Info className="w-3 h-3" />
-            </button>
-
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onOpenEmojiPicker(block.id);
-              }}
-              className="p-1 text-muted hover:text-ink hover:bg-bg rounded"
-              title="Insérer un émoji"
-            >
-              <Smile className="w-3.5 h-3.5" />
-            </button>
-
-            <button
-              ref={typeButtonRef}
-              onClick={handleTypeMenuClick}
-              className="p-1 text-muted hover:text-ink hover:bg-bg rounded"
-              title="Changer de type"
-            >
-              <ArrowRightLeft className="w-3.5 h-3.5" />
-            </button>
-
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onDuplicate(block);
-              }}
-              className="p-1 text-muted hover:text-ink hover:bg-bg rounded"
-              title="Dupliquer"
-            >
-              <Copy className="w-3.5 h-3.5" />
-            </button>
-
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onMoveToPage(block);
-              }}
-              className="p-1 text-muted hover:text-ink hover:bg-bg rounded"
-              title="Déplacer vers un autre cours"
-            >
-              <ArrowUpRight className="w-3.5 h-3.5" />
-            </button>
-
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete(block);
-              }}
-              className="p-1 text-muted hover:text-terracotta hover:bg-bg rounded"
-              title="Supprimer"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Main Content Area - clicking here selects the block */}
+    <>
       <div
-        onClick={() => onSelectBlock(block.id)}
-        className={`flex-1 min-w-0 w-full py-2 px-3 ${
-          !locked && shouldShowActions ? 'pt-4 block-content-padded' : ''
-        } transition-all duration-200 cursor-pointer`}
+        ref={containerRef}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => {
+          setIsHovered(false);
+        }}
+        className={`group relative flex flex-col items-start gap-0 py-1 rounded-lg hover:bg-black/[0.015] transition-all duration-200 block-animated ${
+          isActive || isHovered ? 'is-active is-hovered' : ''
+        } ${
+          dropPos === 'before' ? 'border-t-2 border-terracotta' : ''
+        } ${dropPos === 'after' ? 'border-b-2 border-terracotta' : ''}`}
       >
-        {renderBlockBody()}
+        {/* Action Bar - appears on hover/selection */}
+        {!locked && shouldShowActions && (
+          <div className="w-full flex items-center justify-between px-3 py-1.5 bg-bg/50 backdrop-blur-sm rounded-t-lg transition-all duration-200 block-action-bar">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleComment(block.id);
+                }}
+                className={`p-1 rounded text-xs flex items-center gap-1 ${
+                  commentsCount > 0
+                    ? 'text-terracotta bg-terracotta-soft font-semibold'
+                    : 'text-muted hover:text-ink hover:bg-bg'
+                }`}
+                title="Commentaires"
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                {commentsCount > 0 && <span>{commentsCount}</span>}
+              </button>
+
+              {/* Info tooltip - clickable */}
+              <button
+                onClick={handleInfoClick}
+                data-block-menu
+                className="p-1 text-muted hover:text-ink rounded cursor-pointer"
+                title="Informations"
+              >
+                <Info className="w-3 h-3" />
+              </button>
+
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenEmojiPicker(block.id);
+                }}
+                className="p-1 text-muted hover:text-ink hover:bg-bg rounded"
+                title="Insérer un émoji"
+              >
+                <Smile className="w-3.5 h-3.5" />
+              </button>
+
+              <button
+                onClick={handleTypeMenuClick}
+                data-block-menu
+                className="p-1 text-muted hover:text-ink hover:bg-bg rounded"
+                title="Changer de type"
+              >
+                <ArrowRightLeft className="w-3.5 h-3.5" />
+              </button>
+
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDuplicate(block);
+                }}
+                className="p-1 text-muted hover:text-ink hover:bg-bg rounded"
+                title="Dupliquer"
+              >
+                <Copy className="w-3.5 h-3.5" />
+              </button>
+
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onMoveToPage(block);
+                }}
+                className="p-1 text-muted hover:text-ink hover:bg-bg rounded"
+                title="Déplacer vers un autre cours"
+              >
+                <ArrowUpRight className="w-3.5 h-3.5" />
+              </button>
+
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(block);
+                }}
+                className="p-1 text-muted hover:text-terracotta hover:bg-bg rounded"
+                title="Supprimer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Main Content Area - clicking here selects the block */}
+        <div
+          onClick={() => onSelectBlock(block.id)}
+          className={`flex-1 min-w-0 w-full py-2 px-3 ${
+            !locked && shouldShowActions ? 'pt-4 block-content-padded' : ''
+          } transition-all duration-200 cursor-pointer`}
+        >
+          {renderBlockBody()}
+        </div>
+
+        {/* Drag handle on left - ONLY this initiates drag */}
+        {!locked && onReorderBlock && (
+          <div
+            draggable
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            className="absolute left-0 top-1/2 -translate-y-1/2 flex items-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-1 text-muted cursor-grab active:cursor-grabbing"
+          >
+            <GripVertical className="w-3.5 h-3.5" />
+          </div>
+        )}
+
+        {/* Toggle children */}
+        {isToggleOpen && (
+          <div className="ml-4 pl-3 border-l-2 border-green-soft mt-2 space-y-2 w-full">
+            {childBlocks.map((child) => (
+              <BlockItem
+                key={child.id}
+                block={child}
+                locked={locked}
+                activeBlockId={activeBlockId}
+                commentsCount={0}
+                openCommentBlockId={openCommentBlockId}
+                openToggles={openToggles}
+                profileMap={profileMap}
+                onSelectBlock={onSelectBlock}
+                onUpdateContent={onUpdateContent}
+                onChangeType={onChangeType}
+                onDuplicate={onDuplicate}
+                onMoveToPage={onMoveToPage}
+                onDelete={onDelete}
+                onToggleComment={onToggleComment}
+                onOpenEmojiPicker={onOpenEmojiPicker}
+                onOpenSongPicker={onOpenSongPicker}
+                onToggleCollapse={onToggleCollapse}
+                onAddChildBlock={onAddChildBlock}
+                onReorderBlock={onReorderBlock}
+              />
+            ))}
+            {!locked && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAddChildBlock(block.id);
+                }}
+                className="text-xs text-muted hover:text-ink hover:bg-bg px-2 py-1 rounded-md flex items-center gap-1"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Ajouter un élément ici</span>
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Drag handle on left - ONLY this initiates drag */}
-      {!locked && onReorderBlock && (
-        <div
-          draggable
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-          className="absolute left-0 top-1/2 -translate-y-1/2 flex items-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-1 text-muted cursor-grab active:cursor-grabbing"
-        >
-          <GripVertical className="w-3.5 h-3.5" />
-        </div>
-      )}
-
-      {/* Toggle children */}
-      {isToggleOpen && (
-        <div className="ml-4 pl-3 border-l-2 border-green-soft mt-2 space-y-2 w-full">
-          {childBlocks.map((child) => (
-            <BlockItem
-              key={child.id}
-              block={child}
-              locked={locked}
-              activeBlockId={activeBlockId}
-              commentsCount={0}
-              openCommentBlockId={openCommentBlockId}
-              openToggles={openToggles}
-              profileMap={profileMap}
-              onSelectBlock={onSelectBlock}
-              onUpdateContent={onUpdateContent}
-              onChangeType={onChangeType}
-              onDuplicate={onDuplicate}
-              onMoveToPage={onMoveToPage}
-              onDelete={onDelete}
-              onToggleComment={onToggleComment}
-              onOpenEmojiPicker={onOpenEmojiPicker}
-              onOpenSongPicker={onOpenSongPicker}
-              onToggleCollapse={onToggleCollapse}
-              onAddChildBlock={onAddChildBlock}
-              onReorderBlock={onReorderBlock}
-            />
-          ))}
-          {!locked && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onAddChildBlock(block.id);
-              }}
-              className="text-xs text-muted hover:text-ink hover:bg-bg px-2 py-1 rounded-md flex items-center gap-1"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Ajouter un élément ici</span>
-            </button>
-          )}
-        </div>
-      )}
-    </div>
-  );
-
-  // Render menus in a portal to avoid overflow/positioning issues
-  return (
-    <>
+      {/* Render menus in a portal to avoid overflow/positioning issues */}
       {showTypeMenu && (
         <Portal>
           <div
-            className="fixed z-[9999] bg-surface border border-border rounded-xl shadow-xl p-2"
-            style={{ left: typeMenuPos.x, top: typeMenuPos.y }}
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowTypeMenu(false);
-            }}
+            data-block-menu
+            className="bg-surface border border-border rounded-xl shadow-xl p-2 w-48"
+            style={{ left: typeMenuPos.x, top: typeMenuPos.y, position: 'fixed' }}
+            onClick={(e) => e.stopPropagation()}
           >
             <div className="text-[10px] font-bold uppercase tracking-wider text-muted px-2 py-1">
               Changer le type
@@ -507,15 +528,14 @@ export const BlockItem: React.FC<BlockItemProps> = ({
           </div>
         </Portal>
       )}
+
       {showInfo && (
         <Portal>
           <div
-            className="fixed z-[9999] bg-ink text-white text-[11px] rounded-lg shadow-xl p-2"
-            style={{ left: infoMenuPos.x, top: infoMenuPos.y }}
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowInfo(false);
-            }}
+            data-block-menu
+            className="bg-ink text-white text-[11px] rounded-lg shadow-xl p-2 w-52"
+            style={{ left: infoMenuPos.x, top: infoMenuPos.y, position: 'fixed' }}
+            onClick={(e) => e.stopPropagation()}
           >
             <div>✏️ Créé par <strong>{createdByName}</strong></div>
             {block.created_at && <div>📅 {fmtDate(block.created_at)}</div>}
