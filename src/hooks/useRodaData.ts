@@ -565,6 +565,7 @@ export function useRodaData(session: any) {
     currentPageId,
     setCurrentPageId,
     blocks,
+    setBlocks,
     profileMap,
     allPrerequisites,
     pagePrereqIds,
