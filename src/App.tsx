@@ -429,6 +429,11 @@ export const App: React.FC = () => {
     data.handleReorderPage(draggedId, targetId, position);
   };
 
+  // Space reordering handler
+  const handleMoveSpace = (space: Space, direction: -1 | 1) => {
+    data.handleMoveSpace(space, direction);
+  };
+
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-bg text-muted font-display text-sm">
@@ -496,6 +501,7 @@ export const App: React.FC = () => {
         onMarkAllRead={data.markAllNotificationsRead}
         onSelectNotification={handleSelectNotification}
         onReorderPages={handleReorderPages}
+        onMoveSpace={handleMoveSpace}
       />
 
       {/* Main Content Area */}
