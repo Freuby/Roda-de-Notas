@@ -82,7 +82,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [draggedPageId, setDraggedPageId] = useState<string | null>(null);
   const [dropInfo, setDropInfo] = useState<{ targetId: string; position: 'before' | 'after' } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const dragCounterRef = useRef<0>(0);
+  const dragCounterRef = useRef(0);
 
   const activeSpace = spaces.find((s) => s.id === currentSpaceId);
   const unreadCount = notifications.filter((n) => !n.seen).length;
@@ -248,17 +248,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 const IconComp = SPACE_ICONS[idx % SPACE_ICONS.length];
                 const cov = spaceCoverage[s.id];
                 const isActive = s.id === currentSpaceId;
-                const spaceIndex = spaces.findIndex(sp => sp.id === s.id);
+                const spaceIndex = spaces.findIndex((sp) => sp.id === s.id);
                 const canMoveUp = spaceIndex > 0;
                 const canMoveDown = spaceIndex < spaces.length - 1;
 
                 return (
                   <div key={s.id} className="relative group">
-                    <button
+                    {/* Outer container is a div, not a button — avoids button-inside-button */}
+                    <div
                       onClick={() => {
                         onSelectSpace(s.id);
                       }}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-colors text-left ${
+                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-colors text-left cursor-pointer ${
                         isActive
                           ? 'bg-terracotta-soft text-ink font-semibold border border-terracotta'
                           : 'hover:bg-bg text-ink'
@@ -315,7 +316,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           </div>
                         )}
                       </div>
-                    </button>
+                    </div>
 
                     <button
                       onClick={(e) => {
@@ -557,4 +558,4 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </aside>
     </>
   );
-}
+};
