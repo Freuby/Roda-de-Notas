@@ -17,23 +17,14 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ spaces, on
   const [busy, setBusy] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
 
+  // Fetch all data on mount
   useEffect(() => {
-    if (!query.trim()) {
-      setResults([]);
-      return;
-    }
-
-    const timer = setTimeout(async () => {
-      setBusy(true);
-      
-      const q = normalize(query);
-      
-      // Fetch all data
+    (async () => {
       const [{ data: allPages }, { data: allBlocks }] = await Promise.all([
         supabase.from('pages').select('id, title, space_id, created_at'),
         supabase.from('blocks').select('id, page_id, type, content, created_at')
       ]);
-
+      
       const spaceMap: Record<string, string> = {};
       spaces.forEach((s) => (spaceMap[s.id] = s.name));
       const pageMap: Record<string, any> = {};
@@ -44,7 +35,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ spaces, on
       // 1. Search in spaces
       if (filter === 'all' || filter === 'spaces') {
         (allPages || []).forEach((p) => {
-          if (normalize(p.title).includes(q)) {
+          if (normalize(p.title).includes(normalize(query))) {
             found.push({
               kind: 'page',
               pageId: p.id,
@@ -72,13 +63,13 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ spaces, on
             .filter(Boolean)
             .join(' ');
 
-          if (normalize(text).includes(q)) {
+          if (normalize(text).includes(normalize(query))) {
             const page = pageMap[b.page_id];
             if (page) {
               // build a short snippet around the match
-              const idx = normalize(text).indexOf(q);
+              const idx = normalize(text).indexOf(normalize(query));
               const start = Math.max(0, idx - 40);
-              const end = Math.min(text.length, idx + q.length + 60);
+              const end = Math.min(text.length, idx + normalize(query).length + 60);
               let snippet = text.substring(start, end).replace(/\n/g, ' ').trim();
               if (start > 0) snippet = '…' + snippet;
               if (end < text.length) snippet = snippet + '…';
@@ -107,10 +98,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ spaces, on
       });
 
       setResults(found.slice(0, 30));
-      setBusy(false);
-    }, 300);
-
-    return () => clearTimeout(timer);
+    })();
   }, [query, filter]);
 
   const getResultIcon = (kind: string) => {
