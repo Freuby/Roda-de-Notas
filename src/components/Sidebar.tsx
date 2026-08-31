@@ -15,6 +15,7 @@ import {
   Upload,
   GripVertical,
   ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { SPACE_ICONS } from './Icons';
 import { supabase } from '../lib/supabase';
@@ -45,6 +46,7 @@ interface SidebarProps {
   onMarkAllRead: () => void;
   onSelectNotification: (notif: NotificationItem) => void;
   onReorderPages: (draggedId: string, targetId: string, position: 'before' | 'after') => void;
+  onMoveSpace: (space: Space, direction: -1 | 1) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -72,6 +74,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onMarkAllRead,
   onSelectNotification,
   onReorderPages,
+  onMoveSpace,
 }) => {
   const [notifOpen, setNotifOpen] = useState(false);
   const [activeSpaceMenuId, setActiveSpaceMenuId] = useState<string | null>(null);
@@ -256,6 +259,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 const IconComp = SPACE_ICONS[idx % SPACE_ICONS.length];
                 const cov = spaceCoverage[s.id];
                 const isActive = s.id === currentSpaceId;
+                const spaceIndex = spaces.findIndex(sp => sp.id === s.id);
+                const canMoveUp = spaceIndex > 0;
+                const canMoveDown = spaceIndex < spaces.length - 1;
 
                 return (
                   <div key={s.id} className="relative group">
@@ -293,6 +299,31 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             </span>
                           </div>
                         )}
+                      </div>
+                      {/* Move arrows for spaces */}
+                      <div className="flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onMoveSpace(s, -1);
+                          }}
+                          disabled={!canMoveUp}
+                          className="p-0.5 text-muted hover:text-ink hover:bg-bg rounded transition-colors disabled:opacity-20 disabled:cursor-not-allowed"
+                          title="Monter"
+                        >
+                          <ChevronUp className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onMoveSpace(s, 1);
+                          }}
+                          disabled={!canMoveDown}
+                          className="p-0.5 text-muted hover:text-ink hover:bg-bg rounded transition-colors disabled:opacity-20 disabled:cursor-not-allowed"
+                          title="Descendre"
+                        >
+                          <ChevronDown className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     </button>
 
