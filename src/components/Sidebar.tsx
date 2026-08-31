@@ -14,6 +14,7 @@ import {
   Download,
   Upload,
   GripVertical,
+  ChevronDown,
 } from 'lucide-react';
 import { SPACE_ICONS } from './Icons';
 import { supabase } from '../lib/supabase';
@@ -74,75 +75,128 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const [notifOpen, setNotifOpen] = useState(false);
   const [activeSpaceMenuId, setActiveSpaceMenuId] = useState<string | null>(null);
+  const [repertoireOpen, setRepertoireOpen] = useState(false);
+  const [draggedPageId, setDraggedPageId] = useState<string | null>(null);
+  const [dropInfo, setDropInfo] = useState<{ targetId: string; position: 'before' | 'after' } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dragCounterRef = useRef<0>(0);
 
   const activeSpace = spaces.find((s) => s.id === currentSpaceId);
   const unreadCount = notifications.filter((n) => !n.seen).length;
 
-  // Page drag handlers
+  // --- Page Drag & Drop Handlers ---
+
   const handlePageDragStart = (e: React.DragEvent, pageId: string) => {
+    if (!e.dataTransfer) return;
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', pageId);
-    // Add visual feedback
-    const target = e.currentTarget.closest('[data-page-row]') as HTMLElement;
-    if (target) target.classList.add('page-dragging');
+    // Store the dragged page ID
+    setDraggedPageId(pageId);
+    // Add visual class directly to the dragged element
+    const row = (e.currentTarget as HTMLElement).closest('[data-page-row]') as HTMLElement;
+    if (row) row.classList.add('page-dragging');
   };
 
   const handlePageDragEnd = (e: React.DragEvent) => {
-    // Remove all visual feedback
+    // Remove visual classes from ALL page rows
     document.querySelectorAll('.page-dragging').forEach((el) => el.classList.remove('page-dragging'));
     document.querySelectorAll('.page-drop-before, .page-drop-after').forEach((el) => {
       el.classList.remove('page-drop-before', 'page-drop-after');
     });
+    setDraggedPageId(null);
+    setDropInfo(null);
   };
 
   const handlePageDragOver = (e: React.DragEvent) => {
     e.preventDefault();
+    if (!e.dataTransfer) return;
     e.dataTransfer.dropEffect = 'move';
-    
-    // Remove previous drop indicators
-    document.querySelectorAll('.page-drop-before, .page-drop-after').forEach((el) => {
-      el.classList.remove('page-drop-before', 'page-drop-after');
-    });
-    
-    const row = (e.target as HTMLElement).closest('[data-page-row]') as HTMLElement;
-    if (!row || row.classList.contains('page-dragging')) return;
-    
-    const rect = row.getBoundingClientRect();
-    const midY = rect.top + rect.height / 2;
-    
-    if (e.clientY < midY) {
-      row.classList.add('page-drop-before');
-    } else {
-      row.classList.add('page-drop-after');
-    }
-  };
 
-  const handlePageDragLeave = (e: React.DragEvent) => {
-    const row = (e.target as HTMLElement).closest('[data-page-row]') as HTMLElement;
-    if (row) {
-      row.classList.remove('page-drop-before', 'page-drop-after');
-    }
-  };
-
-  const handlePageDrop = (e: React.DragEvent, targetPageId: string) => {
-    e.preventDefault();
-    const draggedId = e.dataTransfer.getData('text/plain');
-    
-    if (!draggedId || draggedId === targetPageId) return;
-    
-    const row = (e.target as HTMLElement).closest('[data-page-row]') as HTMLElement;
+    const row = (e.target as HTMLElement).closest('[data-page-row]') as HTMLElement | null;
     if (!row) return;
-    
+
+    // Don't drop on the dragged item itself
+    const rowPageId = row.dataset.pageRow || row.querySelector('[data-page-row]')?.getAttribute('data-page-row');
+    if (!rowPageId || rowPageId === draggedPageId) {
+      // Clear previous indicators
+      document.querySelectorAll('.page-drop-before, .page-drop-after').forEach((el) => {
+        el.classList.remove('page-drop-before', 'page-drop-after');
+      });
+      setDropInfo(null);
+      return;
+    }
+
     const rect = row.getBoundingClientRect();
     const midY = rect.top + rect.height / 2;
     const position = e.clientY < midY ? 'before' : 'after';
-    
-    // Clean up visual indicators
-    row.classList.remove('page-drop-before', 'page-drop-after');
-    
-    // Call the reorder callback
-    onReorderPages(draggedId, targetPageId, position);
+
+    // Clear previous indicators first
+    document.querySelectorAll('.page-drop-before, .page-drop-after').forEach((el) => {
+      el.classList.remove('page-drop-before', 'page-drop-after');
+    });
+
+    // Add new indicator
+    row.classList.add(position === 'before' ? 'page-drop-before' : 'page-drop-after');
+    setDropInfo({ targetId: rowPageId, position });
+  };
+
+  const handlePageDragLeave = (e: React.DragEvent) => {
+    // Only clear if leaving the row entirely (not entering a child)
+    const row = (e.target as HTMLElement).closest('[data-page-row]') as HTMLElement | null;
+    if (!row) return;
+    const related = e.relatedTarget as HTMLElement | null;
+    if (!related || !row.contains(related)) {
+      row.classList.remove('page-drop-before', 'page-drop-after');
+      setDropInfo((prev) => (prev?.targetId === row.dataset.pageRow ? null : prev));
+    }
+  };
+
+  const handlePageDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (!e.dataTransfer) return;
+
+    const draggedId = e.dataTransfer.getData('text/plain');
+
+    // Determine target and position from current dropInfo state
+    let targetId = '';
+    let position: 'before' | 'after' = 'after';
+
+    const row = (e.target as HTMLElement).closest('[data-page-row]') as HTMLElement | null;
+    if (row) {
+      targetId = row.dataset.pageRow || '';
+      const rect = row.getBoundingClientRect();
+      position = e.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
+    } else if (dropInfo) {
+      targetId = dropInfo.targetId;
+      position = dropInfo.position;
+    }
+
+    // Clean up all visual classes
+    document.querySelectorAll('.page-dragging').forEach((el) => el.classList.remove('page-dragging'));
+    document.querySelectorAll('.page-drop-before, .page-drop-after').forEach((el) => {
+      el.classList.remove('page-drop-before', 'page-drop-after');
+    });
+    setDraggedPageId(null);
+    setDropInfo(null);
+
+    if (!draggedId || !targetId || draggedId === targetId) return;
+
+    onReorderPages(draggedId, targetId, position);
+  };
+
+  // Also handle dragenter/dragleave for the outer list to manage dragCounter
+  const handlePageDragEnter = (e: React.DragEvent) => {
+    dragCounterRef.current++;
+  };
+
+  const handlePageDragExit = (e: React.DragEvent) => {
+    dragCounterRef.current = Math.max(0, dragCounterRef.current - 1);
+    if (dragCounterRef.current === 0) {
+      document.querySelectorAll('.page-drop-before, .page-drop-after').forEach((el) => {
+        el.classList.remove('page-drop-before', 'page-drop-after');
+      });
+      setDropInfo(null);
+    }
   };
 
   return (
@@ -160,7 +214,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
       >
-        <div className="p-4 border-b border-border flex items-center justify-between">
+        {/* Header */}
+        <div className="p-4 border-b border-border flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full border-2 border-dashed border-terracotta flex items-center justify-center text-sm animate-spin-slow">
               🪘
@@ -170,17 +225,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Global search trigger */}
-        <div className="p-3 border-b border-border">
+        <div className="p-3 border-b border-border flex-shrink-0">
           <button
             onClick={onOpenSearch}
             className="w-full flex items-center gap-2.5 px-3 py-2 bg-bg hover:border-terracotta border border-border rounded-xl text-xs text-muted transition-colors"
           >
-            <Search className="w-3.5 h-3.5" />
+            <Search className="w-3.5 h-3.5 flex-shrink-0" />
             <span className="flex-1 text-left">Rechercher…</span>
-            <kbd className="text-[10px] bg-surface px-1.5 py-0.5 rounded border border-border">⌘K</kbd>
+            <kbd className="text-[10px] bg-surface px-1.5 py-0.5 rounded border border-border text-muted">⌘K</kbd>
           </button>
         </div>
 
+        {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto p-4 space-y-6">
           {/* Spaces */}
           <div>
@@ -188,10 +244,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <span className="text-[11px] font-bold uppercase tracking-wider text-muted">Espaces</span>
               <button
                 onClick={onCreateSpace}
-                className="text-green hover:text-green-light p-1 rounded hover:bg-green-soft text-xs"
+                className="text-green hover:text-green-light p-1 rounded hover:bg-green-soft"
                 title="Ajouter un espace"
               >
-                <Plus className="w-3.5 h-3.5" />
+                <Plus className="w-4 h-4" />
               </button>
             </div>
 
@@ -207,32 +263,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       onClick={() => {
                         onSelectSpace(s.id);
                       }}
-                      className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-sm transition-colors text-left ${
+                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-colors text-left ${
                         isActive
-                          ? 'bg-terracotta-soft text-ink font-semibold'
+                          ? 'bg-terracotta-soft text-ink font-semibold border border-terracotta'
                           : 'hover:bg-bg text-ink'
                       }`}
                     >
                       <span
-                        className={`w-6 h-6 rounded-full border flex items-center justify-center text-xs flex-shrink-0 ${
+                        className={`w-7 h-7 rounded-full border flex items-center justify-center text-xs flex-shrink-0 ${
                           isActive
                             ? 'bg-terracotta border-terracotta text-white'
                             : 'bg-white border-border text-terracotta'
                         }`}
                       >
-                        <IconComp className="w-3.5 h-3.5" />
+                        <IconComp className="w-4 h-4" />
                       </span>
-                      <div className="flex-1 min-w-0 pr-6">
-                        <div className="truncate text-xs font-semibold">{s.name}</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-semibold truncate leading-tight">{s.name}</div>
                         {cov && (
-                          <div className="flex gap-1 mt-1">
-                            <span className="text-[9px] px-1 rounded bg-green-soft text-green font-bold">
+                          <div className="flex gap-1 mt-1.5">
+                            <span className="text-[9px] px-1 py-0.5 rounded bg-green-soft text-green font-bold leading-none">
                               2e {cov['2']}%
                             </span>
-                            <span className="text-[9px] px-1 rounded bg-ochre-soft text-[#8a6a1f] font-bold">
+                            <span className="text-[9px] px-1 py-0.5 rounded bg-ochre-soft text-[#8a6a1f] font-bold leading-none">
                               3e {cov['3']}%
                             </span>
-                            <span className="text-[9px] px-1 rounded bg-[#dce8f5] text-[#2c5d8a] font-bold">
+                            <span className="text-[9px] px-1 py-0.5 rounded bg-[#dce8f5] text-[#2c5d8a] font-bold leading-none">
                               4e {cov['4']}%
                             </span>
                           </div>
@@ -245,24 +301,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         e.stopPropagation();
                         setActiveSpaceMenuId(activeSpaceMenuId === s.id ? null : s.id);
                       }}
-                      className="absolute right-2 top-2.5 p-1 text-muted hover:text-ink opacity-0 group-hover:opacity-100 rounded"
+                      className="absolute right-2 top-2 p-1 text-muted hover:text-ink opacity-0 group-hover:opacity-100 rounded transition-opacity"
                     >
-                      <MoreVertical className="w-3.5 h-3.5" />
+                      <MoreVertical className="w-4 h-4" />
                     </button>
 
                     {activeSpaceMenuId === s.id && (
                       <div
                         onClick={(e) => e.stopPropagation()}
-                        className="absolute right-2 top-9 bg-surface border border-border rounded-xl shadow-xl p-1 z-40 w-44 text-xs space-y-0.5"
+                        className="absolute right-2 top-9 bg-surface border border-border rounded-xl shadow-xl p-1 z-40 w-48 text-xs space-y-0.5"
                       >
                         <button
                           onClick={() => {
                             onRenameSpace(s);
                             setActiveSpaceMenuId(null);
                           }}
-                          className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-bg text-ink"
+                          className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg hover:bg-bg text-ink"
                         >
-                          <Edit2 className="w-3 h-3 text-muted" />
+                          <Edit2 className="w-3.5 h-3.5 text-muted" />
                           <span>Renommer</span>
                         </button>
                         <button
@@ -270,9 +326,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             onArchiveSpace(s);
                             setActiveSpaceMenuId(null);
                           }}
-                          className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-bg text-ink"
+                          className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg hover:bg-bg text-ink"
                         >
-                          <Download className="w-3 h-3 text-muted" />
+                          <Download className="w-3.5 h-3.5 text-muted" />
                           <span>Archiver en HTML</span>
                         </button>
                         <button
@@ -280,9 +336,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             onDeleteSpace(s);
                             setActiveSpaceMenuId(null);
                           }}
-                          className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-bg text-terracotta font-semibold"
+                          className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg hover:bg-bg text-terracotta font-semibold"
                         >
-                          <Trash2 className="w-3 h-3" />
+                          <Trash2 className="w-3.5 h-3.5" />
                           <span>Supprimer</span>
                         </button>
                       </div>
@@ -292,7 +348,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               })}
             </div>
 
-            {/* Import archive button */}
+            {/* Import archive */}
             <div className="pt-2">
               <input
                 type="file"
@@ -307,7 +363,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               />
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full flex items-center gap-2 px-2.5 py-1.5 text-xs text-muted hover:text-ink hover:bg-bg rounded-lg transition-colors"
+                className="w-full flex items-center gap-2 px-2.5 py-2 text-xs text-muted hover:text-ink hover:bg-bg rounded-lg transition-colors"
               >
                 <Upload className="w-3.5 h-3.5" />
                 <span>Importer une archive HTML</span>
@@ -315,27 +371,41 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           </div>
 
-          {/* Pages */}
+          {/* Pages — with drag & drop */}
           <div>
             <div className="flex items-center justify-between mb-2">
               <span className="text-[11px] font-bold uppercase tracking-wider text-muted">
                 {activeSpace ? activeSpace.name : 'Cours'}
               </span>
-              {currentSpaceId && (
-                <button
-                  onClick={onCreatePage}
-                  className="text-green hover:text-green-light p-1 rounded hover:bg-green-soft text-xs"
-                  title="Ajouter un cours"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                </button>
-              )}
+              <div className="flex items-center gap-1">
+                {currentSpaceId && (
+                  <button
+                    onClick={onCreatePage}
+                    className="p-1 text-green hover:text-green-light rounded hover:bg-green-soft"
+                    title="Nouveau cours"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
             </div>
 
-            <div className="space-y-1">
+            {/* Drop zone wrapper for the entire pages list */}
+            <div
+              onDragEnter={handlePageDragEnter}
+              onDragOver={(e) => {
+                // Always preventDefault to allow drop
+                e.preventDefault();
+                e.dataTransfer && (e.dataTransfer.dropEffect = 'move');
+              }}
+              onDragExit={handlePageDragExit}
+              onDrop={handlePageDrop}
+              className="space-y-1 min-h-[4px] rounded-lg transition-colors"
+            >
               {pages.map((p) => {
                 const isActive = p.id === currentPageId;
-                
+                const isDragging = draggedPageId === p.id;
+
                 return (
                   <div
                     key={p.id}
@@ -345,26 +415,35 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     onDragEnd={handlePageDragEnd}
                     onDragOver={handlePageDragOver}
                     onDragLeave={handlePageDragLeave}
-                    onDrop={(e) => handlePageDrop(e, p.id)}
-                    className="group flex items-center justify-between rounded-xl cursor-grab active:cursor-grabbing"
+                    className={`group flex items-center rounded-xl cursor-grab active:cursor-grabbing select-none transition-all duration-150 ${
+                      isDragging ? 'page-dragging opacity-40 scale-[0.98]' : ''
+                    } ${isActive ? 'bg-green-soft' : 'hover:bg-bg'}`}
                   >
+                    {/* Grip handle */}
+                    <div
+                      onClick={(e) => e.stopPropagation()}
+                      className="pl-2 pr-1 py-2 flex-shrink-0 cursor-grab active:cursor-grabbing text-muted opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity"
+                      title="Glisser pour réorganiser"
+                    >
+                      <GripVertical className="w-3.5 h-3.5" />
+                    </div>
+
+                    {/* Page title button */}
                     <button
                       onClick={() => {
                         onSelectPage(p.id);
                         onClose();
                       }}
-                      className={`flex-1 flex items-center gap-2 px-3 py-2 rounded-xl text-xs transition-colors text-left min-w-0 ${
-                        isActive
-                          ? 'bg-green-soft text-green font-bold'
-                          : 'hover:bg-bg text-ink font-medium'
+                      className={`flex-1 flex items-center gap-2 px-2 py-2 rounded-xl text-xs text-left min-w-0 transition-colors ${
+                        isActive ? 'text-green font-bold' : 'text-ink font-medium'
                       }`}
                     >
-                      <GripVertical className="w-3 h-3 text-muted flex-shrink-0 opacity-0 group-hover:opacity-50 transition-opacity" />
                       <span className="truncate flex-1">{p.title || 'Sans titre'}</span>
                       {p.locked && <Lock className="w-3 h-3 text-muted flex-shrink-0" />}
                     </button>
 
-                    <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 pr-1">
+                    {/* Actions — visible on hover */}
+                    <div className="flex items-center gap-0.5 pr-2 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -392,34 +471,54 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 );
               })}
             </div>
+
+            {/* Repertoire link */}
+            {currentSpaceId && (
+              <button
+                onClick={() => setRepertoireOpen(!repertoireOpen)}
+                className={`w-full flex items-center gap-2 px-3 py-2 mt-1 rounded-xl text-xs transition-colors ${
+                  repertoireOpen
+                    ? 'bg-green-soft text-green font-bold border border-green'
+                    : 'text-green-light border border-dashed border-border hover:bg-green-soft hover:border-green'
+                }`}
+              >
+                <span className="text-base">🎵</span>
+                <span className="flex-1 text-left">Répertoire des chants</span>
+                <ChevronDown
+                  className={`w-3.5 h-3.5 transition-transform flex-shrink-0 ${repertoireOpen ? 'rotate-180' : ''}`}
+                />
+              </button>
+            )}
           </div>
         </div>
 
         {/* Footer */}
-        <div className="relative p-3 border-t border-border flex items-center justify-between text-xs text-muted">
-          <span className="truncate max-w-[110px] font-medium">{userName}</span>
+        <div className="relative p-3 border-t border-border flex-shrink-0">
+          <div className="flex items-center justify-between text-xs text-muted">
+            <span className="truncate max-w-[100px] font-medium">{userName}</span>
 
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setNotifOpen(!notifOpen)}
-              className={`p-1.5 rounded-lg border flex items-center gap-1 transition-colors ${
-                unreadCount > 0
-                  ? 'border-terracotta text-terracotta bg-terracotta-soft font-bold'
-                  : 'border-border text-muted hover:text-ink hover:bg-bg'
-              }`}
-              title="Commentaires récents"
-            >
-              <MessageSquare className="w-3.5 h-3.5" />
-              {unreadCount > 0 && <span className="text-[10px]">{unreadCount}</span>}
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setNotifOpen(!notifOpen)}
+                className={`p-1.5 rounded-lg border flex items-center gap-1 transition-colors ${
+                  unreadCount > 0
+                    ? 'border-terracotta text-terracotta bg-terracotta-soft font-bold'
+                    : 'border-border text-muted hover:text-ink hover:bg-bg'
+                }`}
+                title="Commentaires récents"
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                {unreadCount > 0 && <span className="text-[10px]">{unreadCount}</span>}
+              </button>
 
-            <button
-              onClick={() => supabase.auth.signOut()}
-              className="flex items-center gap-1 text-terracotta font-semibold hover:underline p-1.5"
-              title="Déconnexion"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-            </button>
+              <button
+                onClick={() => supabase.auth.signOut()}
+                className="flex items-center gap-1 text-terracotta font-semibold hover:underline p-1.5"
+                title="Déconnexion"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
 
           {notifOpen && (
@@ -438,4 +537,4 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </aside>
     </>
   );
-};
+}
