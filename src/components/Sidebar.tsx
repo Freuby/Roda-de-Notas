@@ -93,15 +93,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
     if (!e.dataTransfer) return;
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', pageId);
-    // Store the dragged page ID
     setDraggedPageId(pageId);
-    // Add visual class directly to the dragged element
     const row = (e.currentTarget as HTMLElement).closest('[data-page-row]') as HTMLElement;
     if (row) row.classList.add('page-dragging');
   };
 
   const handlePageDragEnd = (e: React.DragEvent) => {
-    // Remove visual classes from ALL page rows
     document.querySelectorAll('.page-dragging').forEach((el) => el.classList.remove('page-dragging'));
     document.querySelectorAll('.page-drop-before, .page-drop-after').forEach((el) => {
       el.classList.remove('page-drop-before', 'page-drop-after');
@@ -118,10 +115,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     const row = (e.target as HTMLElement).closest('[data-page-row]') as HTMLElement | null;
     if (!row) return;
 
-    // Don't drop on the dragged item itself
     const rowPageId = row.dataset.pageRow || row.querySelector('[data-page-row]')?.getAttribute('data-page-row');
     if (!rowPageId || rowPageId === draggedPageId) {
-      // Clear previous indicators
       document.querySelectorAll('.page-drop-before, .page-drop-after').forEach((el) => {
         el.classList.remove('page-drop-before', 'page-drop-after');
       });
@@ -133,18 +128,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
     const midY = rect.top + rect.height / 2;
     const position = e.clientY < midY ? 'before' : 'after';
 
-    // Clear previous indicators first
     document.querySelectorAll('.page-drop-before, .page-drop-after').forEach((el) => {
       el.classList.remove('page-drop-before', 'page-drop-after');
     });
 
-    // Add new indicator
     row.classList.add(position === 'before' ? 'page-drop-before' : 'page-drop-after');
     setDropInfo({ targetId: rowPageId, position });
   };
 
   const handlePageDragLeave = (e: React.DragEvent) => {
-    // Only clear if leaving the row entirely (not entering a child)
     const row = (e.target as HTMLElement).closest('[data-page-row]') as HTMLElement | null;
     if (!row) return;
     const related = e.relatedTarget as HTMLElement | null;
@@ -160,7 +152,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
     const draggedId = e.dataTransfer.getData('text/plain');
 
-    // Determine target and position from current dropInfo state
     let targetId = '';
     let position: 'before' | 'after' = 'after';
 
@@ -174,7 +165,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
       position = dropInfo.position;
     }
 
-    // Clean up all visual classes
     document.querySelectorAll('.page-dragging').forEach((el) => el.classList.remove('page-dragging'));
     document.querySelectorAll('.page-drop-before, .page-drop-after').forEach((el) => {
       el.classList.remove('page-drop-before', 'page-drop-after');
@@ -187,7 +177,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
     onReorderPages(draggedId, targetId, position);
   };
 
-  // Also handle dragenter/dragleave for the outer list to manage dragCounter
   const handlePageDragEnter = (e: React.DragEvent) => {
     dragCounterRef.current++;
   };
@@ -275,6 +264,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           : 'hover:bg-bg text-ink'
                       }`}
                     >
+                      {/* Move arrows on the LEFT */}
+                      <div className="flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onMoveSpace(s, -1);
+                          }}
+                          disabled={!canMoveUp}
+                          className="p-0.5 text-muted hover:text-ink hover:bg-bg rounded transition-colors disabled:opacity-20 disabled:cursor-not-allowed"
+                          title="Monter"
+                        >
+                          <ChevronUp className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onMoveSpace(s, 1);
+                          }}
+                          disabled={!canMoveDown}
+                          className="p-0.5 text-muted hover:text-ink hover:bg-bg rounded transition-colors disabled:opacity-20 disabled:cursor-not-allowed"
+                          title="Descendre"
+                        >
+                          <ChevronDown className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
                       <span
                         className={`w-7 h-7 rounded-full border flex items-center justify-center text-xs flex-shrink-0 ${
                           isActive
@@ -299,31 +314,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             </span>
                           </div>
                         )}
-                      </div>
-                      {/* Move arrows for spaces */}
-                      <div className="flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onMoveSpace(s, -1);
-                          }}
-                          disabled={!canMoveUp}
-                          className="p-0.5 text-muted hover:text-ink hover:bg-bg rounded transition-colors disabled:opacity-20 disabled:cursor-not-allowed"
-                          title="Monter"
-                        >
-                          <ChevronUp className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onMoveSpace(s, 1);
-                          }}
-                          disabled={!canMoveDown}
-                          className="p-0.5 text-muted hover:text-ink hover:bg-bg rounded transition-colors disabled:opacity-20 disabled:cursor-not-allowed"
-                          title="Descendre"
-                        >
-                          <ChevronDown className="w-3.5 h-3.5" />
-                        </button>
                       </div>
                     </button>
 
@@ -425,7 +415,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div
               onDragEnter={handlePageDragEnter}
               onDragOver={(e) => {
-                // Always preventDefault to allow drop
                 e.preventDefault();
                 e.dataTransfer && (e.dataTransfer.dropEffect = 'move');
               }}
