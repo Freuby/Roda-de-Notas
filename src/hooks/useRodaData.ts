@@ -58,9 +58,7 @@ export function useRodaData(session: any) {
     const { data } = await supabase.from('profiles').select('id, first_name, last_name, email');
     if (data) {
       const map: Record<string, Profile> = {};
-      data.forEach((p) => {
-        map[p.id] = p;
-      });
+      data.forEach((p) => { map[p.id] = p; });
       setProfiles(map);
     }
   };
@@ -73,9 +71,7 @@ export function useRodaData(session: any) {
       .order('created_at', { ascending: true });
     if (data && data.length > 0) {
       setSpaces(data);
-      if (!currentSpaceId) {
-        setCurrentSpaceId(data[0].id);
-      }
+      if (!currentSpaceId) setCurrentSpaceId(data[0].id);
     }
   };
 
@@ -88,9 +84,7 @@ export function useRodaData(session: any) {
       .order('created_at', { ascending: true });
     if (data) {
       setPages(data);
-      if (data.length > 0 && !currentPageId) {
-        setCurrentPageId(data[0].id);
-      }
+      if (data.length > 0 && !currentPageId) setCurrentPageId(data[0].id);
       loadSpaceCoverage(spaceId, data);
     }
   };
@@ -127,7 +121,6 @@ export function useRodaData(session: any) {
   const loadNotifications = async () => {
     if (!session?.user?.id) return;
     const meId = session.user.id;
-
     const { data: comments } = await supabase
       .from('comments')
       .select('id, block_id, content, created_at, user_id, seen_by')
@@ -135,36 +128,24 @@ export function useRodaData(session: any) {
       .order('created_at', { ascending: false })
       .limit(40);
 
-    if (!comments || comments.length === 0) {
-      setNotifications([]);
-      return;
-    }
+    if (!comments || comments.length === 0) { setNotifications([]); return; }
 
     const blockIds = [...new Set(comments.map((c) => c.block_id))];
-    const { data: blocksData } = await supabase
-      .from('blocks')
-      .select('id, page_id')
-      .in('id', blockIds);
-
+    const { data: blocksData } = await supabase.from('blocks').select('id, page_id').in('id', blockIds);
     const pageIds = [...new Set((blocksData || []).map((b) => b.page_id))];
-    const { data: pagesData } = await supabase
-      .from('pages')
-      .select('id, title')
-      .in('id', pageIds);
+    const { data: pagesData } = await supabase.from('pages').select('id, title').in('id', pageIds);
 
     const blockToPage: Record<string, string> = {};
     (blocksData || []).forEach((b) => (blockToPage[b.id] = b.page_id));
     const pageMap: Record<string, string> = {};
     (pagesData || []).forEach((p) => (pageMap[p.id] = p.title));
 
-    setNotifications(
-      comments.map((c) => ({
-        ...c,
-        page_id: blockToPage[c.block_id],
-        page_title: pageMap[blockToPage[c.block_id]] || 'Cours',
-        seen: (c.seen_by || []).includes(meId),
-      }))
-    );
+    setNotifications(comments.map((c) => ({
+      ...c,
+      page_id: blockToPage[c.block_id],
+      page_title: pageMap[blockToPage[c.block_id]] || 'Cours',
+      seen: (c.seen_by || []).includes(meId),
+    })));
   };
 
   const markAllNotificationsRead = async () => {
@@ -172,7 +153,6 @@ export function useRodaData(session: any) {
     const meId = session.user.id;
     const unread = notifications.filter((n) => !n.seen);
     if (!unread.length) return;
-
     for (const notif of unread) {
       const newSeen = [...new Set([...(notif.seen_by || []), meId])];
       await supabase.from('comments').update({ seen_by: newSeen }).eq('id', notif.id);
@@ -195,20 +175,16 @@ export function useRodaData(session: any) {
       .from('page_prerequisites')
       .select('prerequisite_id')
       .eq('page_id', pageId);
-    if (data) {
-      setPagePrereqIds(new Set(data.map((d) => d.prerequisite_id)));
-    }
+    if (data) setPagePrereqIds(new Set(data.map((d) => d.prerequisite_id)));
   };
 
   const loadSpaceCoverage = async (spaceId: string, spacePages: Page[]) => {
     const pageIds = spacePages.map((p) => p.id);
     if (!pageIds.length) return;
-
     const { data } = await supabase
       .from('page_prerequisites')
       .select('prerequisite_id')
       .in('page_id', pageIds);
-
     if (data) {
       const counts: Record<string, number> = {};
       const covered = new Set<string>();
@@ -217,15 +193,14 @@ export function useRodaData(session: any) {
         covered.add(r.prerequisite_id);
       });
       setSpacePrereqCounts(counts);
-
       if (allPrerequisites.length > 0) {
-        const cov: any = {};
+        const cov: Record<string, number> = {};
         (['2', '3', '4'] as const).forEach((corde) => {
           const items = allPrerequisites.filter((p) => p.corde === corde);
           const done = items.filter((p) => covered.has(p.id)).length;
           cov[corde] = items.length ? Math.round((done / items.length) * 100) : 0;
         });
-        setSpaceCoverage((prev) => ({ ...prev, [spaceId]: cov }));
+        setSpaceCoverage((prev) => ({ ...prev, [spaceId]: cov as any }));
       }
     }
   };
@@ -235,7 +210,7 @@ export function useRodaData(session: any) {
     if (data) setAllSongs(data);
   };
 
-  // Actions: Spaces
+  // --- Actions: Spaces ---
   const handleCreateSpace = async () => {
     const name = prompt('Nom du nouvel espace (ex : Année 2026-2027)');
     if (!name || !name.trim()) return;
@@ -243,8 +218,7 @@ export function useRodaData(session: any) {
     const { data } = await supabase
       .from('spaces')
       .insert({ name: name.trim(), created_by: session.user.id, order_index: maxOrder + 1 })
-      .select()
-      .single();
+      .select().single();
     if (data) {
       setSpaces([...spaces, data]);
       setCurrentSpaceId(data.id);
@@ -271,7 +245,6 @@ export function useRodaData(session: any) {
     }
   };
 
-  // Move space up/down
   const handleMoveSpace = async (space: Space, direction: -1 | 1) => {
     const idx = spaces.findIndex((s) => s.id === space.id);
     const swapIdx = idx + direction;
@@ -291,7 +264,7 @@ export function useRodaData(session: any) {
     await supabase.from('spaces').update({ order_index: a }).eq('id', other.id);
   };
 
-  // Actions: Pages
+  // --- Actions: Pages ---
   const handleCreatePage = async () => {
     if (!currentSpaceId) return;
     const maxOrder = pages.reduce((m, p) => Math.max(m, p.order_index || 0), -1);
@@ -303,8 +276,7 @@ export function useRodaData(session: any) {
         created_by: session.user.id,
         order_index: maxOrder + 1,
       })
-      .select()
-      .single();
+      .select().single();
     if (data) {
       setPages([...pages, data]);
       setCurrentPageId(data.id);
@@ -323,9 +295,7 @@ export function useRodaData(session: any) {
         order_index: maxOrder + 1,
         locked: false,
       })
-      .select()
-      .single();
-
+      .select().single();
     if (!newPage) return;
 
     const { data: sourceBlocks } = await supabase
@@ -333,36 +303,26 @@ export function useRodaData(session: any) {
       .select('*')
       .eq('page_id', page.id)
       .order('order_index');
-
     if (sourceBlocks && sourceBlocks.length > 0) {
-      const clonedBlocks = sourceBlocks.map((b) => ({
-        page_id: newPage.id,
-        type: b.type,
-        content: b.content,
-        parent_block_id: b.parent_block_id,
-        order_index: b.order_index,
-        created_by: session.user.id,
-      }));
-      await supabase.from('blocks').insert(clonedBlocks);
+      await supabase.from('blocks').insert(
+        sourceBlocks.map((b) => ({
+          page_id: newPage.id, type: b.type, content: b.content,
+          parent_block_id: b.parent_block_id, order_index: b.order_index,
+          created_by: session.user.id,
+        }))
+      );
     }
-
     setPages([...pages, newPage]);
     setCurrentPageId(newPage.id);
   };
 
   const handleDeletePage = async (page: Page) => {
-    if (page.locked) {
-      alert('Ce cours est verrouillé. Déverrouillez-le avant de le supprimer.');
-      return;
-    }
+    if (page.locked) { alert('Ce cours est verrouillé.'); return; }
     if (!confirm(`Supprimer le cours « ${page.title} » ?`)) return;
-
     await supabase.from('pages').delete().eq('id', page.id);
     const remaining = pages.filter((p) => p.id !== page.id);
     setPages(remaining);
-    if (currentPageId === page.id) {
-      setCurrentPageId(remaining[0]?.id || null);
-    }
+    if (currentPageId === page.id) setCurrentPageId(remaining[0]?.id || null);
   };
 
   const handleUpdatePageTitle = async (title: string) => {
@@ -379,37 +339,24 @@ export function useRodaData(session: any) {
     await supabase.from('pages').update({ locked: nextLocked }).eq('id', page.id);
   };
 
-  // Page reordering
   const handleReorderPage = async (draggedId: string, targetId: string, position: 'before' | 'after') => {
     if (draggedId === targetId) return;
-
-    // Local reordering
     const filtered = pages.filter((p) => p.id !== draggedId);
     const targetIdx = filtered.findIndex((p) => p.id === targetId);
     const insertAt = position === 'before' ? targetIdx : targetIdx + 1;
     const draggedPage = pages.find((p) => p.id === draggedId);
     if (!draggedPage) return;
-
     filtered.splice(insertAt, 0, draggedPage);
-    
     const updates: { id: string; order_index: number }[] = [];
     const next = filtered.map((p, i) => {
-      if (p.order_index !== i) {
-        p.order_index = i;
-        updates.push({ id: p.id, order_index: i });
-      }
+      if (p.order_index !== i) { p.order_index = i; updates.push({ id: p.id, order_index: i }); }
       return p;
     });
-
     setPages(next);
-
-    // Persist to DB
-    for (const u of updates) {
-      await supabase.from('pages').update({ order_index: u.order_index }).eq('id', u.id);
-    }
+    for (const u of updates) await supabase.from('pages').update({ order_index: u.order_index }).eq('id', u.id);
   };
 
-  // Actions: Blocks
+  // --- Actions: Blocks ---
   const handleAddBlock = async (
     type: BlockType,
     parentBlockId: string | null = null,
@@ -418,46 +365,32 @@ export function useRodaData(session: any) {
     if (!currentPageId || currentPageId === '__repertoire__') return;
     const siblings = blocks.filter((b) => (b.parent_block_id || null) === (parentBlockId || null));
     const maxOrder = siblings.reduce((m, b) => Math.max(m, b.order_index || 0), -1);
-
     let content: any = { text: '' };
     if (type === 'callout') content = { text: '', emoji: '💡' };
     if (type === 'video') content = { url: '', caption: '' };
     if (type === 'song') content = {};
-
     const { data } = await supabase
       .from('blocks')
       .insert({
-        page_id: currentPageId,
-        type,
-        content,
+        page_id: currentPageId, type, content,
         parent_block_id: parentBlockId,
         order_index: maxOrder + 1,
         created_by: session.user.id,
       })
-      .select()
-      .single();
-
+      .select().single();
     if (data) {
       setBlocks([...blocks, data]);
-      if (type === 'song' && onSongPickNeeded) {
-        onSongPickNeeded(data.id);
-      }
-      if (type === 'toggle') {
-        setOpenToggles((prev) => new Set([...prev, data.id]));
-      }
+      if (type === 'song' && onSongPickNeeded) onSongPickNeeded(data.id);
+      if (type === 'toggle') setOpenToggles((prev) => new Set([...prev, data.id]));
     }
   };
 
   const handleUpdateBlockContent = async (block: Block, patch: any) => {
     const nextContent = { ...block.content, ...patch };
     const now = new Date().toISOString();
-    setBlocks(
-      blocks.map((b) =>
-        b.id === block.id
-          ? { ...b, content: nextContent, updated_at: now, updated_by: session.user.id }
-          : b
-      )
-    );
+    setBlocks(blocks.map((b) =>
+      b.id === block.id ? { ...b, content: nextContent, updated_at: now, updated_by: session.user.id } : b
+    ));
     await supabase
       .from('blocks')
       .update({ content: nextContent, updated_at: now, updated_by: session.user.id })
@@ -473,30 +406,22 @@ export function useRodaData(session: any) {
     if (type === 'callout') newContent = { text: block.content?.text || '', emoji: '💡' };
     if (type === 'video') newContent = { url: block.content?.url || '', caption: '' };
     if (type === 'song') newContent = {};
-
     setBlocks(blocks.map((b) => (b.id === block.id ? { ...b, type, content: newContent } : b)));
     await supabase.from('blocks').update({ type, content: newContent }).eq('id', block.id);
-    if (type === 'song' && onSongPickNeeded) {
-      onSongPickNeeded(block.id);
-    }
+    if (type === 'song' && onSongPickNeeded) onSongPickNeeded(block.id);
   };
 
   const handleDuplicateBlock = async (block: Block) => {
     const { data } = await supabase
       .from('blocks')
       .insert({
-        page_id: block.page_id,
-        type: block.type,
-        content: block.content,
+        page_id: block.page_id, type: block.type, content: block.content,
         parent_block_id: block.parent_block_id,
         order_index: block.order_index + 1,
         created_by: session.user.id,
       })
-      .select()
-      .single();
-    if (data) {
-      setBlocks([...blocks, data]);
-    }
+      .select().single();
+    if (data) setBlocks([...blocks, data]);
   };
 
   const handleMoveBlockToPage = async (block: Block, targetPageId: string) => {
@@ -506,13 +431,11 @@ export function useRodaData(session: any) {
       .eq('page_id', targetPageId)
       .order('order_index', { ascending: false })
       .limit(1);
-
     const maxOrder = targetBlocks && targetBlocks.length ? targetBlocks[0].order_index + 1 : 0;
     await supabase
       .from('blocks')
       .update({ page_id: targetPageId, parent_block_id: null, order_index: maxOrder })
       .eq('id', block.id);
-
     setBlocks(blocks.filter((b) => b.id !== block.id));
   };
 
@@ -522,41 +445,23 @@ export function useRodaData(session: any) {
     setBlocks(blocks.filter((b) => b.id !== block.id && b.parent_block_id !== block.id));
   };
 
-  // Drag-and-drop reordering within the same page (top-level blocks only)
-  const handleReorderBlock = async (
-    draggedId: string,
-    targetId: string,
-    position: 'before' | 'after'
-  ) => {
+  const handleReorderBlock = async (draggedId: string, targetId: string, position: 'before' | 'after') => {
     const dragged = blocks.find((b) => b.id === draggedId);
     const target = blocks.find((b) => b.id === targetId);
-    if (!dragged || !target) return;
-    if (dragged.parent_block_id || target.parent_block_id) return; // top-level only
-
-    // Local reordering
+    if (!dragged || !target || dragged.parent_block_id || target.parent_block_id) return;
     const topLevel = blocks.filter((b) => !b.parent_block_id);
     const filtered = topLevel.filter((b) => b.id !== draggedId);
     const targetIdx = filtered.findIndex((b) => b.id === targetId);
     const insertAt = position === 'before' ? targetIdx : targetIdx + 1;
     filtered.splice(insertAt, 0, dragged);
-
     const updates: { id: string; order_index: number }[] = [];
     const next = filtered.map((b, i) => {
-      if (b.order_index !== i) {
-        b.order_index = i;
-        updates.push({ id: b.id, order_index: i });
-      }
+      if (b.order_index !== i) { b.order_index = i; updates.push({ id: b.id, order_index: i }); }
       return b;
     });
-
-    // Merge back with children blocks
     const childBlocks = blocks.filter((b) => b.parent_block_id);
     setBlocks([...next, ...childBlocks]);
-
-    // Persist to DB
-    for (const u of updates) {
-      await supabase.from('blocks').update({ order_index: u.order_index }).eq('id', u.id);
-    }
+    for (const u of updates) await supabase.from('blocks').update({ order_index: u.order_index }).eq('id', u.id);
   };
 
   const handleTogglePrerequisite = async (prereqId: string) => {
@@ -566,42 +471,25 @@ export function useRodaData(session: any) {
     if (exists) {
       next.delete(prereqId);
       setPagePrereqIds(next);
-      await supabase
-        .from('page_prerequisites')
-        .delete()
-        .eq('page_id', currentPageId)
-        .eq('prerequisite_id', prereqId);
+      await supabase.from('page_prerequisites').delete().eq('page_id', currentPageId).eq('prerequisite_id', prereqId);
     } else {
       next.add(prereqId);
       setPagePrereqIds(next);
-      await supabase
-        .from('page_prerequisites')
-        .insert({ page_id: currentPageId, prerequisite_id: prereqId });
+      await supabase.from('page_prerequisites').insert({ page_id: currentPageId, prerequisite_id: prereqId });
     }
-    if (currentSpaceId) {
-      loadSpaceCoverage(currentSpaceId, pages);
-    }
+    if (currentSpaceId) loadSpaceCoverage(currentSpaceId, pages);
   };
 
   const handleAddComment = async (blockId: string, text: string) => {
     if (!text.trim()) return;
     const { data } = await supabase
       .from('comments')
-      .insert({
-        block_id: blockId,
-        user_id: session.user.id,
-        content: text.trim(),
-      })
-      .select()
-      .single();
-    if (data) {
-      setCommentsMap((prev) => ({
-        ...prev,
-        [blockId]: [...(prev[blockId] || []), data],
-      }));
-    }
+      .insert({ block_id: blockId, user_id: session.user.id, content: text.trim() })
+      .select().single();
+    if (data) setCommentsMap((prev) => ({ ...prev, [blockId]: [...(prev[blockId] || []), data] }));
   };
 
+  // Build profile name map
   const profileMap: Record<string, string> = {};
   Object.values(profiles).forEach((p) => {
     profileMap[p.id] = [p.first_name, p.last_name].filter(Boolean).join(' ') || p.email?.split('@')[0] || 'Inconnu';

@@ -17,7 +17,7 @@ import { useSearch } from './hooks/useSearch';
 import { useBlockHistory } from './hooks/useBlockHistory';
 import { useTheme } from './hooks/useTheme';
 import { MobileTopbar } from './components/MobileTopbar';
-import { Block, Space, NotificationItem } from './types';
+import { Block, Space, NotificationItem, Song, BlockType } from './types';
 
 export const App: React.FC = () => {
   // --- Core state ---
@@ -27,6 +27,11 @@ export const App: React.FC = () => {
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [movingBlock, setMovingBlock] = useState<Block | null>(null);
+
+  // --- Picker states ---
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [songPickerBlockId, setSongPickerBlockId] = useState<string | null>(null);
+  const [emojiPickerBlockId, setEmojiPickerBlockId] = useState<string | null>(null);
 
   // --- Hooks ---
   const { theme, toggleTheme } = useTheme();
@@ -92,9 +97,7 @@ export const App: React.FC = () => {
     blockHistory: history.blockHistory,
     historyIndex: history.historyIndex,
     setActiveBlockId,
-    setSearchOpen: search.setQuery,
-    setBlockHistory: history.setBlockHistory,
-    setHistoryIndex: history.setHistoryIndex,
+    setSearchOpen,
     setToastMessage,
     navigateBlock,
     undoBlock,
@@ -116,7 +119,7 @@ export const App: React.FC = () => {
         data.setCurrentPageId(action.pageId);
         setActiveBlockId(action.blockId);
       }
-      search.setQuery('');
+      setSearchOpen(false);
     },
     [search, data]
   );
@@ -139,7 +142,7 @@ export const App: React.FC = () => {
 
   // --- Archive / Import ---
   const handleArchiveSpace = useCallback(async (space: Space) => {
-    setToastMessage('Génération de l\'archive…');
+    setToastMessage("Génération de l'archive…");
     const { data: spacePages } = await supabase
       .from('pages')
       .select('*')
@@ -161,7 +164,7 @@ export const App: React.FC = () => {
   }, []);
 
   const handleImportArchive = useCallback(async (file: File) => {
-    setToastMessage('Lecture de l\'archive…');
+    setToastMessage('Lecture de larchive…');
     try {
       const text = await file.text();
       const parser = new DOMParser();
@@ -192,7 +195,7 @@ export const App: React.FC = () => {
       }
       setToastMessage('Archive importée ✓');
       window.location.reload();
-    } catch { setToastMessage('Erreur lors de l\'import'); }
+    } catch { setToastMessage("Erreur lors de l'import"); }
   }, [data, session]);
 
   // --- Reorder handlers ---
@@ -204,7 +207,36 @@ export const App: React.FC = () => {
     data.handleMoveSpace(space, direction);
   }, [data]);
 
-  // --- Toast ---
+  // --- Song picker handler ---
+  const handleSongSelect = useCallback((song: Song) => {
+    if (!songPickerBlockId) return;
+    const block = data.blocks.find((b) => b.id === songPickerBlockId);
+    if (block) {
+      data.handleUpdateBlockContent(block, {
+        song_id: song.id,
+        title: song.title,
+        category: song.category,
+        mnemonic: song.mnemonic,
+        lyrics: song.lyrics,
+        mediaLink: song.mediaLink,
+      });
+    }
+    setSongPickerBlockId(null);
+    setToastMessage('Chant sélectionné ✓');
+  }, [songPickerBlockId, data]);
+
+  // --- Emoji picker handler ---
+  const handleEmojiSelect = useCallback((emoji: string) => {
+    if (!emojiPickerBlockId) return;
+    const block = data.blocks.find((b) => b.id === emojiPickerBlockId);
+    if (block) {
+      const current = block.content?.text || '';
+      data.handleUpdateBlockContent(block, { text: current + emoji });
+    }
+    setEmojiPickerBlockId(null);
+  }, [emojiPickerBlockId, data]);
+
+  // --- Toast auto-clear ---
   useEffect(() => {
     if (toastMessage) {
       const t = setTimeout(() => setToastMessage(null), 2400);
@@ -225,13 +257,14 @@ export const App: React.FC = () => {
 
   const activeSpace = data.spaces.find((s) => s.id === data.currentSpaceId);
   const activePage = data.pages.find((p) => p.id === data.currentPageId);
+  const songPickerSong = songPickerBlockId ? data.allSongs.find((s) => s.id === songPickerBlockId) : null;
 
   return (
     <div className="flex h-screen w-full bg-bg text-ink overflow-hidden transition-colors duration-300">
       <MobileTopbar
         sidebarOpen={sidebarOpen}
         onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
-        onOpenSearch={() => search.setQuery('')}
+        onOpenSearch={() => setSearchOpen(true)}
         theme={theme}
         onToggleTheme={toggleTheme}
       />
@@ -257,7 +290,7 @@ export const App: React.FC = () => {
         onDeletePage={data.handleDeletePage}
         onCreateSpace={data.handleCreateSpace}
         onCreatePage={data.handleCreatePage}
-        onOpenSearch={() => search.setQuery('')}
+        onOpenSearch={() => setSearchOpen(true)}
         onMarkAllRead={data.markAllNotificationsRead}
         onSelectNotification={handleSelectNotification}
         onReorderPages={handleReorderPages}
@@ -287,15 +320,23 @@ export const App: React.FC = () => {
               onTogglePrerequisite={data.handleTogglePrerequisite}
               onSelectBlock={setActiveBlockId}
               onUpdateBlockContent={data.handleUpdateBlockContent}
-              onChangeBlockType={(b, type) => data.handleChangeBlockType(b, type, setMovingBlock)}
+              onChangeBlockType={(b, type) => {
+                data.handleChangeBlockType(b, type, (id) => {
+                  if (type === 'song') setSongPickerBlockId(id);
+                });
+              }}
               onDuplicateBlock={async (b) => { await data.handleDuplicateBlock(b); setToastMessage('Bloc dupliqué ✓'); }}
               onMoveBlockToPage={(b) => setMovingBlock(b)}
               onDeleteBlock={data.handleDeleteBlock}
-              onAddBlock={(type, parentId) => data.handleAddBlock(type, parentId, setMovingBlock)}
+              onAddBlock={(type, parentId) => {
+                data.handleAddBlock(type, parentId, (id) => {
+                  if (type === 'song') setSongPickerBlockId(id);
+                });
+              }}
               onToggleComment={(id) => data.setOpenCommentBlockId(data.openCommentBlockId === id ? null : id)}
               onAddComment={data.handleAddComment}
-              onOpenEmojiPicker={setMovingBlock}
-              onOpenSongPicker={setMovingBlock}
+              onOpenEmojiPicker={(blockId) => setEmojiPickerBlockId(blockId)}
+              onOpenSongPicker={(blockId) => setSongPickerBlockId(blockId)}
               onToggleCollapse={(id) => {
                 const next = new Set(data.openToggles);
                 if (next.has(id)) next.delete(id); else next.add(id);
@@ -313,17 +354,20 @@ export const App: React.FC = () => {
         </div>
       </main>
 
-      {search.query && (
+      {/* Global Search Modal */}
+      {searchOpen && (
         <GlobalSearchModal
           spaces={data.spaces}
           onSelect={(sId, pId) => {
             data.setCurrentSpaceId(sId);
             data.setCurrentPageId(pId);
+            setSearchOpen(false);
           }}
-          onClose={() => search.setQuery('')}
+          onClose={() => setSearchOpen(false)}
         />
       )}
 
+      {/* Move Block Modal */}
       {movingBlock && (
         <MoveBlockModal
           block={movingBlock}
@@ -337,7 +381,24 @@ export const App: React.FC = () => {
         />
       )}
 
-      {/* Song picker, emoji picker, toast handled via setMovingBlock / setToastMessage */}
+      {/* Song Picker Modal */}
+      {songPickerBlockId && (
+        <SongPickerModal
+          songs={data.allSongs}
+          onSelect={handleSongSelect}
+          onClose={() => setSongPickerBlockId(null)}
+        />
+      )}
+
+      {/* Emoji Picker Modal */}
+      {emojiPickerBlockId && (
+        <EmojiPickerModal
+          onSelect={handleEmojiSelect}
+          onClose={() => setEmojiPickerBlockId(null)}
+        />
+      )}
+
+      {/* Toast */}
       <Toast message={toastMessage} />
     </div>
   );

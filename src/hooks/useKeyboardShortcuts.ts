@@ -1,5 +1,4 @@
 import { useEffect } from 'react';
-import { useRodaData } from './useRodaData';
 
 interface KeyboardShortcutsOptions {
   session: any;
@@ -8,9 +7,7 @@ interface KeyboardShortcutsOptions {
   historyIndex: number;
   setActiveBlockId: (id: string | null) => void;
   setSearchOpen: (open: boolean) => void;
-  setBlockHistory: React.Dispatch<React.SetStateAction<any[]>>;
-  setHistoryIndex: React.Dispatch<React.SetStateAction<number>>;
-  setToastMessage: React.Dispatch<React.SetStateAction<string | null>>;
+  setToastMessage: (msg: string | null) => void;
   navigateBlock: (dir: 'up' | 'down' | 'left' | 'right') => void;
   undoBlock: () => void;
   redoBlock: () => void;
@@ -24,8 +21,6 @@ export function useKeyboardShortcuts({
   historyIndex,
   setActiveBlockId,
   setSearchOpen,
-  setBlockHistory,
-  setHistoryIndex,
   setToastMessage,
   navigateBlock,
   undoBlock,
@@ -34,37 +29,55 @@ export function useKeyboardShortcuts({
 }: KeyboardShortcutsOptions) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Cmd/Ctrl + K — open global search
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
-        setSearchOpen(true);
+        if (session) setSearchOpen(true);
+        return;
       }
 
-      if (session && !e.shiftKey && !e.altKey && !e.metaKey) {
-        switch (e.key) {
-          case 'ArrowUp':
-            e.preventDefault();
-            navigateBlock('up');
-            break;
-          case 'ArrowDown':
-            e.preventDefault();
-            navigateBlock('down');
-            break;
-          case 'ArrowLeft':
-            e.preventDefault();
-            navigateBlock('left');
-            break;
-          case 'ArrowRight':
-            e.preventDefault();
-            navigateBlock('right');
-            break;
-          case 'Escape':
-            e.preventDefault();
-            setActiveBlockId(null);
-            setSearchOpen(false);
-            break;
-        }
+      if (!session) return;
+
+      // Escape — close search or deselect block
+      if (e.key === 'Escape') {
+        setSearchOpen(false);
+        setActiveBlockId(null);
+        return;
       }
 
+      // Don't intercept when typing in inputs
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable
+      ) {
+        return;
+      }
+
+      // Arrow navigation between blocks
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        navigateBlock('up');
+        return;
+      }
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        navigateBlock('down');
+        return;
+      }
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        navigateBlock('left');
+        return;
+      }
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        navigateBlock('right');
+        return;
+      }
+
+      // Cmd/Ctrl + Z — undo / redo
       if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
         e.preventDefault();
         if (e.shiftKey) {
@@ -72,9 +85,11 @@ export function useKeyboardShortcuts({
         } else {
           undoBlock();
         }
+        return;
       }
 
-      if (e.key === 'Delete' && activeBlockId) {
+      // Delete / Backspace — delete active block
+      if ((e.key === 'Delete' || e.key === 'Backspace') && activeBlockId) {
         e.preventDefault();
         deleteActiveBlock();
       }
