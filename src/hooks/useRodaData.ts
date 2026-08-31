@@ -368,17 +368,6 @@ export function useRodaData(session: any) {
     let content: any = { text: '' };
     if (type === 'callout') content = { text: '', emoji: '💡' };
     if (type === 'video') content = { url: '', caption: '' };
-    if (  const handleAddBlock = async (
-    type: BlockType,
-    parentBlockId: string | null = null,
-    onSongPickNeeded?: (blockId: string) => void
-  ) => {
-    if (!currentPageId || currentPageId === '__repertoire__') return;
-    const siblings = blocks.filter((b) => (b.parent_block_id || null) === (parentBlockId || null));
-    const maxOrder = siblings.reduce((m, b) => Math.max(m, b.order_index || 0), -1);
-    let content: any = { text: '' };
-    if (type === 'callout') content = { text: '', emoji: '💡' };
-    if (type === 'video') content = { url: '', caption: '' };
     if (type === 'song') content = {};
     const { data } = await supabase
       .from('blocks')
