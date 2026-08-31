@@ -271,6 +271,26 @@ export function useRodaData(session: any) {
     }
   };
 
+  // Move space up/down
+  const handleMoveSpace = async (space: Space, direction: -1 | 1) => {
+    const idx = spaces.findIndex((s) => s.id === space.id);
+    const swapIdx = idx + direction;
+    if (swapIdx < 0 || swapIdx >= spaces.length) return;
+    const other = spaces[swapIdx];
+    const a = space.order_index || 0;
+    const b = other.order_index || 0;
+    const updatedSpace = { ...space, order_index: b };
+    const updatedOther = { ...other, order_index: a };
+    setSpaces((prev) => {
+      const next = [...prev];
+      next[idx] = updatedSpace;
+      next[swapIdx] = updatedOther;
+      return next;
+    });
+    await supabase.from('spaces').update({ order_index: b }).eq('id', space.id);
+    await supabase.from('spaces').update({ order_index: a }).eq('id', other.id);
+  };
+
   // Actions: Pages
   const handleCreatePage = async () => {
     if (!currentSpaceId) return;
@@ -612,6 +632,7 @@ export function useRodaData(session: any) {
     handleCreateSpace,
     handleRenameSpace,
     handleDeleteSpace,
+    handleMoveSpace,
     handleCreatePage,
     handleDuplicatePage,
     handleDeletePage,
