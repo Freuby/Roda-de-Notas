@@ -41,13 +41,13 @@ export const PrerequisitesBar: React.FC<PrerequisitesBarProps> = ({
   const getCordeBadgeStyle = (corde: string) => {
     switch (corde) {
       case '2':
-        return 'bg-green-soft text-green';
+        return 'bg-capoeiraBlue-soft text-capoeiraBlue';
       case '3':
-        return 'bg-ochre-soft text-[#8a6a1f]';
+        return 'bg-capoeiraGold-soft text-capoeiraGold';
       case '4':
-        return 'bg-[#dce8f5] text-[#2c5d8a]';
+        return 'bg-capoeiraGreen-soft text-capoeiraGreen';
       default:
-        return 'bg-green-soft text-green';
+        return 'bg-capoeiraBlue-soft text-capoeiraBlue';
     }
   };
 

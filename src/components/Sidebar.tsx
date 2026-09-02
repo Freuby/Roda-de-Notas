@@ -261,7 +261,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       }}
                       className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-colors text-left cursor-pointer ${
                         isActive
-                          ? 'bg-terracotta-soft text-ink font-semibold border border-terracotta'
+                          ? 'bg-capoeiraBlue-soft text-capoeiraBlue font-semibold border border-capoeiraBlue'
                           : 'hover:bg-bg text-ink'
                       }`}
                     >
@@ -292,29 +292,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       </div>
 
                       <span
-                        className={`w-7 h-7 rounded-full border flex items-center justify-center text-xs flex-shrink-0 ${
-                          isActive
-                            ? 'bg-terracotta border-terracotta text-white'
-                            : 'bg-white border-border text-terracotta'
-                        }`}
-                      >
+                                              className={`w-7 h-7 rounded-full border flex items-center justify-center text-xs flex-shrink-0 ${
+                                                isActive
+                                                  ? 'bg-capoeiraBlue border-capoeiraBlue text-white'
+                                                  : 'bg-white border-border text-capoeiraBlue'
+                                              }`}
+                                            >
                         <IconComp className="w-4 h-4" />
                       </span>
                       <div className="flex-1 min-w-0">
                         <div className="text-xs font-semibold truncate leading-tight">{s.name}</div>
                         {cov && (
-                          <div className="flex gap-1 mt-1.5">
-                            <span className="text-[9px] px-1 py-0.5 rounded bg-green-soft text-green font-bold leading-none">
-                              2e {cov['2']}%
-                            </span>
-                            <span className="text-[9px] px-1 py-0.5 rounded bg-ochre-soft text-[#8a6a1f] font-bold leading-none">
-                              3e {cov['3']}%
-                            </span>
-                            <span className="text-[9px] px-1 py-0.5 rounded bg-[#dce8f5] text-[#2c5d8a] font-bold leading-none">
-                              4e {cov['4']}%
-                            </span>
-                          </div>
-                        )}
+                                                  <div className="flex gap-1 mt-1.5">
+                                                    <span className="text-[9px] px-1 py-0.5 rounded bg-capoeiraBlue-soft text-capoeiraBlue font-bold leading-none">
+                                                      2e {cov['2']}%
+                                                    </span>
+                                                    <span className="text-[9px] px-1 py-0.5 rounded bg-capoeiraGold-soft text-capoeiraGold font-bold leading-none">
+                                                      3e {cov['3']}%
+                                                    </span>
+                                                    <span className="text-[9px] px-1 py-0.5 rounded bg-capoeiraGreen-soft text-capoeiraGreen font-bold leading-none">
+                                                      4e {cov['4']}%
+                                                    </span>
+                                                  </div>
+                                                )}
                       </div>
                     </div>
 
