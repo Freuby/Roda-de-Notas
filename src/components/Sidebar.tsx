@@ -83,8 +83,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [dropInfo, setDropInfo] = useState<{ targetId: string; position: 'before' | 'after' } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounterRef = useRef(0);
-
-  const activeSpace = spaces.find((s) => s.id === currentSpaceId);
+    const [draggedSpaceId, setDraggedSpaceId] = useState<string | null>(null);
+    const [dropInfoSpace, setDropInfoSpace] = useState<{ targetId: string; position: 'before' | 'after' } | null>(null);
+    const spaceDragCounterRef = useRef(0);
+  
+    const activeSpace = spaces.find((s) => s.id === currentSpaceId);
   const unreadCount = notifications.filter((n) => !n.seen).length;
 
   // --- Page Drag & Drop Handlers ---
