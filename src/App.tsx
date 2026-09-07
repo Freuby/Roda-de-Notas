@@ -295,6 +295,8 @@ export const App: React.FC = () => {
         onSelectNotification={handleSelectNotification}
         onReorderPages={handleReorderPages}
         onMoveSpace={handleMoveSpace}
+        theme={theme}
+        onToggleTheme={toggleTheme}
       />
 
       <main className="flex-1 overflow-y-auto pt-14 md:pt-0 p-6 md:p-12">

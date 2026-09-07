@@ -16,6 +16,8 @@ import {
   GripVertical,
   ChevronDown,
   ChevronUp,
+  Moon,
+  Sun,
 } from 'lucide-react';
 import { SPACE_ICONS } from './Icons';
 import { supabase } from '../lib/supabase';
@@ -47,6 +49,8 @@ interface SidebarProps {
   onSelectNotification: (notif: NotificationItem) => void;
   onReorderPages: (draggedId: string, targetId: string, position: 'before' | 'after') => void;
   onMoveSpace: (space: Space, direction: -1 | 1) => void;
+  theme: 'light' | 'dark';
+  onToggleTheme: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -75,6 +79,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSelectNotification,
   onReorderPages,
   onMoveSpace,
+  theme,
+  onToggleTheme,
 }) => {
   const [notifOpen, setNotifOpen] = useState(false);
   const [activeSpaceMenuId, setActiveSpaceMenuId] = useState<string | null>(null);
@@ -216,6 +222,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
               🪘
             </div>
             <span className="font-display font-bold text-lg text-ink">Roda de Notas</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => toggleTheme()}
+              className="p-1.5 rounded-lg text-muted hover:text-ink transition-colors"
+              title="Toggle day/night mode"
+            >
+              {theme === 'light' ? <Moon className="w-3.5 h-3.5" /> : <Sun className="w-3.5 h-3.5" />}
+            </button>
           </div>
         </div>
 
