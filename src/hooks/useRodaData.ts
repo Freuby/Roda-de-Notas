@@ -80,8 +80,8 @@ export function useRodaData(session: any) {
       .from('pages')
       .select('*')
       .eq('space_id', spaceId)
-      .order('order_index', { ascending: true })
-      .order('created_at', { ascending: true });
+      .order('order_index', { ascending: false })
+      .order('created_at', { ascending: false });
     if (data) {
       setPages(data);
       if (data.length > 0 && !currentPageId) setCurrentPageId(data[0].id);
