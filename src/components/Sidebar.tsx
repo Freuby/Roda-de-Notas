@@ -225,12 +225,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => toggleTheme()}
-              className="p-1.5 rounded-lg text-muted hover:text-ink transition-colors"
-              title="Toggle day/night mode"
-            >
-              {theme === 'light' ? <Moon className="w-3.5 h-3.5" /> : <Sun className="w-3.5 h-3.5" />}
-            </button>
+                          onClick={onToggleTheme}
+                          className="p-1.5 rounded-lg text-muted hover:text-ink transition-colors"
+                          title="Toggle day/night mode"
+                        >
+                          {theme === 'light' ? <Moon className="w-3.5 h-3.5" /> : <Sun className="w-3.5 h-3.5" />}
+                        </button>
           </div>
         </div>
 
