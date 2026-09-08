@@ -4,56 +4,46 @@ export default {
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {
-              bg: '#F5F0E6',
-              surface: '#FFFFFF',
-              ink: '#1A3C2F',
-              muted: '#7A7A7A',
+              bg: 'var(--bg)',
+              surface: 'var(--surface)',
+              ink: 'var(--ink)',
+              muted: 'var(--muted)',
               terracotta: {
-                DEFAULT: '#FF6B00',
-                soft: '#FFE3CC',
+                DEFAULT: 'var(--terracotta)',
+                soft: 'var(--terracotta-soft)',
               },
               green: {
-                DEFAULT: '#1A3C2F',
-                light: '#2E6B52',
-                soft: '#DCEFE6',
+                DEFAULT: 'var(--green)',
+                light: 'var(--green-light)',
+                soft: 'var(--green-soft)',
               },
               ochre: {
-                DEFAULT: '#FFB300',
-                soft: '#FFF3D6',
+                DEFAULT: 'var(--ochre)',
+                soft: 'var(--ochre-soft)',
               },
               // Capoeira group colors
                       capoeiraBlue: {
-                        DEFAULT: '#0467B0',
-                        soft: '#D6E8F7',
-                        dark: '#034A82',
+                        DEFAULT: 'var(--capoeira-blue)',
+                        soft: 'var(--capoeira-blue-soft)',
+                        dark: 'var(--capoeira-blue-dark)',
                       },
                       capoeiraGreen: {
-                        DEFAULT: '#03A501',
-                        soft: '#D6F7E1',
-                        dark: '#027A01',
+                        DEFAULT: 'var(--capoeira-green)',
+                        soft: 'var(--capoeira-green-soft)',
+                        dark: 'var(--capoeira-green-dark)',
                       },
                       capoeiraGold: {
-                        DEFAULT: '#E8DF24',
-                        soft: '#FFF9D6',
-                        dark: '#B8A81A',
+                        DEFAULT: 'var(--capoeira-gold)',
+                        soft: 'var(--capoeira-gold-soft)',
+                        dark: 'var(--capoeira-gold-dark)',
                       },
-              border: '#E3DCC9',
+              border: 'var(--border)',
             },
-      fontFamily: {
-        display: ['Poppins', 'sans-serif'],
-        sans: ['Inter', 'sans-serif'],
-      },
-      borderRadius: {
-        DEFAULT: '12px',
-        card: '16px',
-      },
-      animation: {
-        'spin-slow': 'spin 22s linear infinite',
-      },
     },
   },
   plugins: [],
-};
+}
