@@ -200,6 +200,114 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
   };
 
+  // --- Space Drag & Drop Handlers ---
+
+  const handleSpaceDragStart = (e: React.DragEvent, spaceId: string) => {
+    if (!e.dataTransfer) return;
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', spaceId);
+    setDraggedSpaceId(spaceId);
+    const row = (e.currentTarget as HTMLElement).closest('[data-space-row]') as HTMLElement;
+    if (row) row.classList.add('space-dragging');
+  };
+
+  const handleSpaceDragEnd = (e: React.DragEvent) => {
+    document.querySelectorAll('.space-dragging').forEach((el) => el.classList.remove('space-dragging'));
+    document.querySelectorAll('.space-drop-before, .space-drop-after').forEach((el) => {
+      el.classList.remove('space-drop-before', 'space-drop-after');
+    });
+    setDraggedSpaceId(null);
+    setDropInfoSpace(null);
+  };
+
+  const handleSpaceDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (!e.dataTransfer) return;
+    e.dataTransfer.dropEffect = 'move';
+
+    const row = (e.target as HTMLElement).closest('[data-space-row]') as HTMLElement | null;
+    if (!row) return;
+
+    const rowSpaceId = row.dataset.spaceRow || row.querySelector('[data-space-row]')?.getAttribute('data-space-row');
+    if (!rowSpaceId || rowSpaceId === draggedSpaceId) {
+      document.querySelectorAll('.space-drop-before, .space-drop-after').forEach((el) => {
+        el.classList.remove('space-drop-before', 'space-drop-after');
+      });
+      setDropInfoSpace(null);
+      return;
+    }
+
+    const rect = row.getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+    const position = e.clientY < midY ? 'before' : 'after';
+
+    document.querySelectorAll('.space-drop-before, .space-drop-after').forEach((el) => {
+      el.classList.remove('space-drop-before', 'space-drop-after');
+    });
+
+    row.classList.add(position === 'before' ? 'space-drop-before' : 'space-drop-after');
+    setDropInfoSpace({ targetId: rowSpaceId, position });
+  };
+
+  const handleSpaceDragLeave = (e: React.DragEvent) => {
+    const row = (e.target as HTMLElement).closest('[data-space-row]') as HTMLElement | null;
+    if (!row) return;
+    const related = e.relatedTarget as HTMLElement | null;
+    if (!related || !row.contains(related)) {
+      row.classList.remove('space-drop-before', 'space-drop-after');
+      setDropInfoSpace((prev) => (prev?.targetId === row.dataset.spaceRow ? null : prev));
+    }
+  };
+
+  const handleSpaceDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (!e.dataTransfer) return;
+
+    const draggedId = e.dataTransfer.getData('text/plain');
+
+    let targetId = '';
+    let position: 'before' | 'after' = 'after';
+
+    const row = (e.target as HTMLElement).closest('[data-space-row]') as HTMLElement | null;
+    if (row) {
+      targetId = row.dataset.spaceRow || '';
+      const rect = row.getBoundingClientRect();
+      position = e.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
+    } else if (dropInfoSpace) {
+      targetId = dropInfoSpace.targetId;
+      position = dropInfoSpace.position;
+    }
+
+    document.querySelectorAll('.space-dragging').forEach((el) => el.classList.remove('space-dragging'));
+    document.querySelectorAll('.space-drop-before, .space-drop-after').forEach((el) => {
+      el.classList.remove('space-drop-before', 'space-drop-after');
+    });
+    setDraggedSpaceId(null);
+    setDropInfoSpace(null);
+
+    if (!draggedId || !targetId || draggedId === targetId) return;
+
+    const draggedSpace = spaces.find((s) => s.id === draggedId);
+    const targetSpace = spaces.find((s) => s.id === targetId);
+    if (!draggedSpace || !targetSpace) return;
+
+    onMoveSpace(draggedSpace, position === 'before' ? -1 : 1);
+  };
+
+  const handleSpaceDragEnter = (e: React.DragEvent) => {
+    spaceDragCounterRef.current++;
+  };
+
+  const handleSpaceDragExit = (e: React.DragEvent) => {
+    spaceDragCounterRef.current = Math.max(0, spaceDragCounterRef.current - 1);
+    if (spaceDragCounterRef.current === 0) {
+      document.querySelectorAll('.space-drop-before, .space-drop-after').forEach((el) => {
+        el.classList.remove('space-drop-before', 'space-drop-after');
+      });
+      setDropInfoSpace(null);
+    }
+  };
+
   return (
     <>
       {/* Backdrop on mobile */}
@@ -261,7 +369,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </button>
             </div>
 
-            <div className="space-y-1">
+            <div
+              onDragEnter={handleSpaceDragEnter}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.dataTransfer && (e.dataTransfer.dropEffect = 'move');
+              }}
+              onDragExit={handleSpaceDragExit}
+              onDrop={handleSpaceDrop}
+              className="space-y-1 min-h-[4px] rounded-lg transition-colors"
+            >
               {spaces.map((s, idx) => {
                 const IconComp = SPACE_ICONS[idx % SPACE_ICONS.length];
                 const cov = spaceCoverage[s.id];
@@ -271,7 +388,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 const canMoveDown = spaceIndex < spaces.length - 1;
 
                 return (
-                  <div key={s.id} className="relative group">
+                  <div
+                    key={s.id}
+                    data-space-row={s.id}
+                    draggable
+                    onDragStart={(e) => handleSpaceDragStart(e, s.id)}
+                    onDragEnd={handleSpaceDragEnd}
+                    onDragOver={handleSpaceDragOver}
+                    onDragLeave={handleSpaceDragLeave}
+                    className={`relative group ${
+                      draggedSpaceId === s.id ? 'space-dragging opacity-40 scale-[0.98]' : ''
+                    }`}
+                  >
                     {/* Outer container is a div, not a button — avoids button-inside-button */}
                     <div
                       onClick={() => {
