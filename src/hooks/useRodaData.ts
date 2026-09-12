@@ -247,21 +247,27 @@ export function useRodaData(session: any) {
 
   const handleMoveSpace = async (space: Space, direction: -1 | 1) => {
     const idx = spaces.findIndex((s) => s.id === space.id);
-    const swapIdx = idx + direction;
-    if (swapIdx < 0 || swapIdx >= spaces.length) return;
-    const other = spaces[swapIdx];
-    const a = space.order_index || 0;
-    const b = other.order_index || 0;
-    const updatedSpace = { ...space, order_index: b };
-    const updatedOther = { ...other, order_index: a };
-    setSpaces((prev) => {
-      const next = [...prev];
-      next[idx] = updatedSpace;
-      next[swapIdx] = updatedOther;
-      return next;
+    const targetIdx = idx + direction;
+    if (targetIdx < 0 || targetIdx >= spaces.length) return;
+
+    const next = [...spaces];
+    const [moved] = next.splice(idx, 1);
+    next.splice(targetIdx, 0, moved);
+
+    const updates: { id: string; order_index: number }[] = [];
+    const reindexed = next.map((s, i) => {
+      if (s.order_index !== i) {
+        updates.push({ id: s.id, order_index: i });
+        return { ...s, order_index: i };
+      }
+      return s;
     });
-    await supabase.from('spaces').update({ order_index: b }).eq('id', space.id);
-    await supabase.from('spaces').update({ order_index: a }).eq('id', other.id);
+
+    setSpaces(reindexed);
+
+    for (const u of updates) {
+      await supabase.from('spaces').update({ order_index: u.order_index }).eq('id', u.id);
+    }
   };
 
   // --- Actions: Pages ---

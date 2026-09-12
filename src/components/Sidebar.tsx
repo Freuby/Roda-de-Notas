@@ -89,11 +89,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [dropInfo, setDropInfo] = useState<{ targetId: string; position: 'before' | 'after' } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounterRef = useRef(0);
-    const [draggedSpaceId, setDraggedSpaceId] = useState<string | null>(null);
-    const [dropInfoSpace, setDropInfoSpace] = useState<{ targetId: string; position: 'before' | 'after' } | null>(null);
-    const spaceDragCounterRef = useRef(0);
   
-    const activeSpace = spaces.find((s) => s.id === currentSpaceId);
+  const activeSpace = spaces.find((s) => s.id === currentSpaceId);
   const unreadCount = notifications.filter((n) => !n.seen).length;
 
   // --- Page Drag & Drop Handlers ---
@@ -261,16 +258,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </button>
             </div>
 
-            <div
-              onDragEnter={handleSpaceDragEnter}
-              onDragOver={(e) => {
-                e.preventDefault();
-                e.dataTransfer && (e.dataTransfer.dropEffect = 'move');
-              }}
-              onDragExit={handleSpaceDragExit}
-              onDrop={handleSpaceDrop}
-              className="space-y-1 min-h-[4px] rounded-lg transition-colors"
-            >
+            <div className="space-y-1">
               {spaces.map((s, idx) => {
                 const IconComp = SPACE_ICONS[idx % SPACE_ICONS.length];
                 const cov = spaceCoverage[s.id];
@@ -280,18 +268,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 const canMoveDown = spaceIndex < spaces.length - 1;
 
                 return (
-                  <div
-                    key={s.id}
-                    data-space-row={s.id}
-                    draggable
-                    onDragStart={(e) => handleSpaceDragStart(e, s.id)}
-                    onDragEnd={handleSpaceDragEnd}
-                    onDragOver={handleSpaceDragOver}
-                    onDragLeave={handleSpaceDragLeave}
-                    className={`relative group ${
-                      draggedSpaceId === s.id ? 'space-dragging opacity-40 scale-[0.98]' : ''
-                    }`}
-                  >
+                  <div key={s.id} className="relative group">
                     {/* Outer container is a div, not a button — avoids button-inside-button */}
                     <div
                       onClick={() => {
