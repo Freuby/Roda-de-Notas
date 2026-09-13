@@ -220,7 +220,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Header */}
         <div className="p-4 border-b border-border flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-3">
-            <img src="/icons/logo.svg" alt="Roda de Notas" className="w-8 h-8 rounded-full border-2 border-dashed border-terracotta flex items-center justify-center animate-spin-slow" />
+            <img src="/icons/logo.svg" alt="Roda de Notas" className="w-8 h-8 rounded-full border border-border object-cover" />
             <span className="font-display font-bold text-lg text-ink">Roda de Notas</span>
           </div>
           <div className="flex items-center gap-2">
