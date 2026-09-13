@@ -45,12 +45,12 @@ export const RepertoireView: React.FC<RepertoireViewProps> = ({ spaceName, pages
 
     const byId: Record<string, { song: Partial<Song>; pages: string[] }> = {};
     for (const b of songBlocks || []) {
-      const sid = b.content?.song_id || b.content?.title;
-      if (!sid) continue;
+      const content = b.content || {};
+      const sid = content.song_id || content.title || b.id;
       const page = pages.find((p) => p.id === b.page_id);
       if (!byId[sid]) {
         byId[sid] = {
-          song: b.content?.song_id ? songsMap[b.content.song_id] || b.content : b.content,
+          song: content.song_id ? songsMap[content.song_id] || content : content,
           pages: [],
         };
       }

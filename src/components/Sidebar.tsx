@@ -153,35 +153,40 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const handlePageDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    if (!e.dataTransfer) return;
-
-    const draggedId = e.dataTransfer.getData('text/plain');
-
-    let targetId = '';
-    let position: 'before' | 'after' = 'after';
-
-    const row = (e.target as HTMLElement).closest('[data-page-row]') as HTMLElement | null;
-    if (row) {
-      targetId = row.dataset.pageRow || '';
-      const rect = row.getBoundingClientRect();
-      position = e.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
-    } else if (dropInfo) {
-      targetId = dropInfo.targetId;
-      position = dropInfo.position;
-    }
-
-    document.querySelectorAll('.page-dragging').forEach((el) => el.classList.remove('page-dragging'));
-    document.querySelectorAll('.page-drop-before, .page-drop-after').forEach((el) => {
-      el.classList.remove('page-drop-before', 'page-drop-after');
-    });
-    setDraggedPageId(null);
-    setDropInfo(null);
-
-    if (!draggedId || !targetId || draggedId === targetId) return;
-
-    onReorderPages(draggedId, targetId, position);
-  };
+      e.preventDefault();
+      if (!e.dataTransfer) return;
+  
+      const draggedId = e.dataTransfer.getData('text/plain');
+  
+      let targetId = '';
+      let position: 'before' | 'after' = 'after';
+  
+      const row = (e.target as HTMLElement).closest('[data-page-row]') as HTMLElement | null;
+      if (row) {
+        targetId = row.dataset.pageRow || '';
+        const rect = row.getBoundingClientRect();
+        position = e.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
+      } else if (dropInfo) {
+        targetId = dropInfo.targetId;
+        position = dropInfo.position;
+      }
+  
+      document.querySelectorAll('.page-dragging').forEach((el) => el.classList.remove('page-dragging'));
+      document.querySelectorAll('.page-drop-before, .page-drop-after').forEach((el) => {
+        el.classList.remove('page-drop-before', 'page-drop-after');
+      });
+      setDraggedPageId(null);
+      setDropInfo(null);
+  
+      if (!draggedId || !targetId || draggedId === targetId) return;
+  
+      onReorderPages(draggedId, targetId, position);
+    };
+  
+    const handleRepertoireClick = () => {
+      setRepertoireOpen(!repertoireOpen);
+      onSelectPage('__repertoire__');
+    };
 
   const handlePageDragEnter = (e: React.DragEvent) => {
     dragCounterRef.current++;
@@ -511,13 +516,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {/* Repertoire link */}
             {currentSpaceId && (
               <button
-                onClick={() => setRepertoireOpen(!repertoireOpen)}
-                className={`w-full flex items-center gap-2 px-3 py-2 mt-1 rounded-xl text-xs transition-colors ${
-                  repertoireOpen
-                    ? 'bg-green-soft text-green font-bold border border-green'
-                    : 'text-green-light border border-dashed border-border hover:bg-green-soft hover:border-green'
-                }`}
-              >
+                              onClick={handleRepertoireClick}
+                              className={`w-full flex items-center gap-2 px-3 py-2 mt-1 rounded-xl text-xs transition-colors ${
+                                repertoireOpen
+                                  ? 'bg-green-soft text-green font-bold border border-green'
+                                  : 'text-green-light border border-dashed border-border hover:bg-green-soft hover:border-green'
+                              }`}
+                            >
                 <span className="text-base">🎵</span>
                 <span className="flex-1 text-left">Répertoire des chants</span>
                 <ChevronDown
