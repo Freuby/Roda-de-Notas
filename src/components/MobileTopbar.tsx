@@ -22,7 +22,7 @@ export const MobileTopbar: React.FC<MobileTopbarProps> = ({
         <Menu className="w-5 h-5" />
       </button>
       <span className="font-display font-bold text-ink flex items-center gap-2">
-        <img src="/icons/logo.svg" alt="Roda de Notas" className="w-5 h-5" /> Roda de Notas
+        <img src="/icons/logo.svg" alt="Roda de Notas" className="w-5 h-5 rounded-full border border-border object-cover" /> Roda de Notas
       </span>
       <div className="flex items-center gap-2">
         <button onClick={onToggleTheme} className="p-2 text-muted hover:text-ink">
