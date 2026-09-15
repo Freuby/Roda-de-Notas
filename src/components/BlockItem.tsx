@@ -112,7 +112,12 @@ export const BlockItem: React.FC<BlockItemProps> = ({
   const handleTypeMenuClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     const rect = e.currentTarget.getBoundingClientRect();
-    setTypeMenuPos({ x: rect.left, y: rect.bottom + 4 });
+    const menuHeight = 200;
+    let y = rect.bottom + 4;
+    if (y + menuHeight > window.innerHeight) {
+      y = rect.top - menuHeight - 4;
+    }
+    setTypeMenuPos({ x: rect.left, y });
     setShowTypeMenu(!showTypeMenu);
     setShowInfo(false);
   };
@@ -120,7 +125,12 @@ export const BlockItem: React.FC<BlockItemProps> = ({
   const handleInfoClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     const rect = e.currentTarget.getBoundingClientRect();
-    setInfoMenuPos({ x: rect.left, y: rect.bottom + 4 });
+    const menuHeight = 100;
+    let y = rect.bottom + 4;
+    if (y + menuHeight > window.innerHeight) {
+      y = rect.top - menuHeight - 4;
+    }
+    setInfoMenuPos({ x: rect.left, y });
     setShowInfo(!showInfo);
     setShowTypeMenu(false);
   };
