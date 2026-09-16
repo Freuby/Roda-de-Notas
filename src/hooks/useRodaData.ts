@@ -76,18 +76,18 @@ export function useRodaData(session: any) {
   };
 
   const loadPages = async (spaceId: string) => {
-    const { data } = await supabase
-      .from('pages')
-      .select('*')
-      .eq('space_id', spaceId)
-      .order('order_index', { ascending: false })
-      .order('created_at', { ascending: false });
-    if (data) {
-      setPages(data);
-      if (data.length > 0 && !currentPageId) setCurrentPageId(data[0].id);
-      loadSpaceCoverage(spaceId, data);
-    }
-  };
+      const { data } = await supabase
+        .from('pages')
+        .select('*')
+        .eq('space_id', spaceId)
+        .order('order_index', { ascending: true })
+        .order('created_at', { ascending: true });
+      if (data) {
+        setPages(data);
+        if (data.length > 0 && !currentPageId) setCurrentPageId(data[0].id);
+        loadSpaceCoverage(spaceId, data);
+      }
+    };
 
   const loadBlocks = async (pageId: string) => {
     const { data } = await supabase
