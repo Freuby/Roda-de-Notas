@@ -8,13 +8,13 @@
     --surface: #FFFFFF;
     --ink: #1A3C2F;
     --muted: #7A7A7A;
-    --terracotta: #FF6B00;
-    --terracotta-soft: #FFE3CC;
+    --terracotta: #7C3AED;
+    --terracotta-soft: #EDE9FE;
     --green: #1A3C2F;
     --green-light: #2E6B52;
     --green-soft: #DCEFE6;
-    --ochre: #FFB300;
-    --ochre-soft: #FFF3D6;
+    --violet: #6B46C1;
+    --violet-soft: #F5C2E7;
     --leaf: #00C853;
     --border: #E3DCC9;
     --radius: 12px;
@@ -37,13 +37,13 @@
     --surface: #1A2A22;
     --ink: #E8F0EB;
     --muted: #9BA8A3;
-    --terracotta: #FF7A2A;
-    --terracotta-soft: #3D2010;
+    --terracotta: #A78BFA;
+    --terracotta-soft: #2E1065;
     --green: #4A9B7F;
     --green-light: #6BB99A;
     --green-soft: #1E3228;
-    --ochre: #FFB300;
-    --ochre-soft: #4D3F0F;
+    --violet: #A78BFA;
+    --violet-soft: #2E1065;
     --leaf: #00E676;
     --border: #2A3A32;
     --capoeira-blue: #0467B0;
@@ -95,7 +95,7 @@ input, textarea {
 
 @keyframes search-pulse {
   0% {
-    background-color: var(--ochre-soft);
+    background-color: var(--violet-soft);
   }
   100% {
     background-color: transparent;
@@ -113,8 +113,8 @@ input, textarea {
 .block-animated.is-active,
 .block-animated.is-hovered {
   transform: translateX(-6px);
-  background-color: rgba(255, 227, 204, 0.18);
-  box-shadow: -2px 0 0 0 var(--terracotta), 0 1px 8px rgba(255, 107, 0, 0.06);
+  background-color: rgba(237, 233, 254, 0.18);
+  box-shadow: -2px 0 0 0 var(--terracotta), 0 1px 8px rgba(124, 58, 237, 0.06);
 }
 
 .block-action-bar {

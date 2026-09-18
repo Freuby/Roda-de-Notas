@@ -17,7 +17,7 @@ export function downloadSpaceArchive(space: Space, pages: Page[], blocks: Block[
 
     switch (b.type) {
       case 'heading':
-        inner = `<h2 style="margin:18px 0 6px;font-size:22px;color:#FF6B00;border-left:4px solid #FF6B00;padding-left:10px;">${esc(
+        inner = `<h2 style="margin:18px 0 6px;font-size:22px;color:#7C3AED;border-left:4px solid #7C3AED;padding-left:10px;">${esc(
           c.text || ''
         )}</h2>`;
         break;
@@ -53,13 +53,13 @@ export function downloadSpaceArchive(space: Space, pages: Page[], blocks: Block[
           : '';
         break;
       case 'song':
-        inner = `<div style="border:1px solid #FF6B00;border-radius:10px;padding:12px 16px;margin:10px 0;background:#fff;">
-          <strong style="color:#FF6B00;font-size:15px;">♪ ${esc(c.title || 'Sans titre')}</strong>${
+        inner = `<div style="border:1px solid #7C3AED;border-radius:10px;padding:12px 16px;margin:10px 0;background:#fff;">
+          <strong style="color:#7C3AED;font-size:15px;">♪ ${esc(c.title || 'Sans titre')}</strong>${
           c.category ? ` <span style="font-size:11px;color:#7A7A7A;">(${esc(SONG_CATEGORIES[c.category] || c.category)})</span>` : ''
         }
           ${c.lyrics ? `<div style="white-space:pre-wrap;margin-top:8px;font-size:13.5px;line-height:1.6;background:#F5F0E6;padding:10px;border-radius:6px;">${esc(c.lyrics)}</div>` : ''}
           ${c.mnemonic ? `<div style="margin-top:6px;font-style:italic;color:#1A3C2F;font-size:12.5px;">💭 ${esc(c.mnemonic)}</div>` : ''}
-          ${c.mediaLink ? `<p style="margin-top:6px;"><a href="${esc(c.mediaLink)}" target="_blank" style="color:#FF6B00;font-size:12px;">🔗 Écouter / regarder</a></p>` : ''}
+          ${c.mediaLink ? `<p style="margin-top:6px;"><a href="${esc(c.mediaLink)}" target="_blank" style="color:#7C3AED;font-size:12px;">🔗 Écouter / regarder</a></p>` : ''}
         </div>`;
         break;
       case 'toggle':
