@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Space, Page, Block } from '../types';
 import { Search, X, FileText, Music, ChevronRight, Filter, Calendar } from 'lucide-react';
 import { normalize } from '../lib/utils';
 
 interface GlobalSearchModalProps {
-  spaces: Space[];
+  spaces: any[];
   onSelect: (spaceId: string, pageId: string, blockId?: string) => void;
   onClose: () => void;
 }
@@ -24,7 +23,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ spaces, on
         supabase.from('pages').select('id, title, space_id, created_at'),
         supabase.from('blocks').select('id, page_id, type, content, created_at')
       ]);
-      
+
       const spaceMap: Record<string, string> = {};
       spaces.forEach((s) => (spaceMap[s.id] = s.name));
       const pageMap: Record<string, any> = {};
@@ -53,27 +52,30 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ spaces, on
       // 2. Search in blocks
       if (filter === 'all' || filter === 'blocks') {
         (allBlocks || []).forEach((b) => {
-          const text = [
+          // Build a searchable string from all content fields
+          const contentFields: (string | undefined) = [
             b.content?.text,
             b.content?.caption,
             b.content?.title,
             b.content?.lyrics,
             b.content?.mnemonic,
-          ]
-            .filter(Boolean)
-            .join(' ');
+            b.content?.category,
+          ];
+          const text = contentFields.filter(Boolean).join(' ');
 
-          if (normalize(text).includes(normalize(query))) {
+          if (text && normalize(text).includes(normalize(query))) {
+            // Build a short snippet around the match
+            const lowerText = text.toLowerCase();
+            const lowerQuery = query.toLowerCase();
+            const idx = lowerText.indexOf(lowerQuery);
+            const start = Math.max(0, idx - 40);
+            const end = Math.min(text.length, idx + query.length + 60);
+            let snippet = text.substring(start, end).replace(/\n/g, ' ').trim();
+            if (start > 0) snippet = '…' + snippet;
+            if (end < text.length) snippet = snippet + '…';
+
             const page = pageMap[b.page_id];
             if (page) {
-              // build a short snippet around the match
-              const idx = normalize(text).indexOf(normalize(query));
-              const start = Math.max(0, idx - 40);
-              const end = Math.min(text.length, idx + normalize(query).length + 60);
-              let snippet = text.substring(start, end).replace(/\n/g, ' ').trim();
-              if (start > 0) snippet = '…' + snippet;
-              if (end < text.length) snippet = snippet + '…';
-              
               found.push({
                 kind: 'block',
                 blockId: b.id,
@@ -129,16 +131,16 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ spaces, on
         {/* Search header */}
         <div className="p-4 border-b border-border">
           <div className="flex items-center gap-3 mb-3">
-            <Search className="w-5 h-5 text-muted flex-shrink-0" />
+            <Search className="w-5 h-5 text-white flex-shrink-0" />
             <input
               type="text"
               autoFocus
               placeholder="Rechercher un cours, un mouvement, un chant…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="w-full bg-transparent border-none outline-none text-sm text-ink placeholder-muted"
+              className="w-full bg-transparent border-none outline-none text-sm text-white placeholder-gray-400"
             />
-            <button onClick={onClose} className="p-1 text-muted hover:text-ink rounded-lg">
+            <button onClick={onClose} className="p-1 text-white rounded-lg">
               <X className="w-4 h-4" />
             </button>
           </div>
@@ -149,30 +151,27 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ spaces, on
               onClick={() => setShowFilters(!showFilters)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                 showFilters || filter !== 'all'
-                  ? 'bg-bg text-ink border border-border'
-                  : 'text-muted hover:text-ink hover:bg-bg'
+                  ? 'bg-gray-800 text-white border border-gray-600'
+                  : 'text-gray-300 hover:text-white hover:bg-gray-700'
               }`}
             >
               <Filter className="w-3.5 h-3.5" />
               <span>Filtres</span>
             </button>
-            
+
             {showFilters && (
               <div className="flex items-center gap-1.5 ml-2">
-                {(['all', 'spaces', 'pages', 'blocks'] as const).map((f) => (
+                {['all', 'spaces', 'pages', 'blocks'] as const.map((f) => (
                   <button
                     key={f}
                     onClick={() => setFilter(f)}
                     className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
                       filter === f
                         ? 'bg-terracotta text-white'
-                        : 'text-muted hover:text-ink hover:bg-bg'
+                        : 'text-gray-300 hover:text-white hover:bg-gray-700'
                     }`}
                   >
-                    {f === 'all' ? 'Tout' : 
-                     f === 'spaces' ? 'Espaces' : 
-                     f === 'pages' ? 'Cours' : 
-                     'Blocs'}
+                    {f === 'all' ? 'Tout' : f === 'spaces' ? 'Espaces' : f === 'pages' ? 'Cours' : 'Blocs'}
                   </button>
                 ))}
               </div>
@@ -183,15 +182,15 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ spaces, on
         {/* Results */}
         <div className="flex-1 overflow-y-auto p-3">
           {busy ? (
-            <p className="text-center text-xs text-muted py-8">Recherche en cours…</p>
+            <p className="text-center text-xs text-gray-400 py-8">Recherche en cours…</p>
           ) : results.length === 0 && query ? (
-            <p className="text-center text-xs text-muted py-8 italic">
+            <p className="text-center text-xs text-gray-400 py-8 italic">
               Aucun résultat pour « {query} »
             </p>
           ) : results.length === 0 ? (
             <div className="text-center py-12">
-              <Search className="w-12 h-12 text-muted mx-auto mb-3 opacity-30" />
-              <p className="text-xs text-muted">
+              <Search className="w-12 h-12 text-gray-400 mx-auto mb-3 opacity-30" />
+              <p className="text-xs text-gray-400">
                 Tapez pour rechercher dans tous vos cours et chants.
               </p>
             </div>
@@ -201,14 +200,14 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ spaces, on
                 <button
                   key={i}
                   onClick={() => onSelect(r.spaceId, r.pageId, r.blockId)}
-                  className="w-full flex items-start gap-3 p-3 rounded-lg hover:bg-bg text-left transition-colors border border-transparent hover:border-border"
+                  className="w-full flex items-start gap-3 p-3 rounded-lg hover:bg-gray-800 text-left transition-colors border border-gray-600 hover:border-gray-300"
                 >
                   <span className={`w-8 h-8 rounded-md border flex items-center justify-center text-xs font-bold flex-shrink-0 ${getResultColor(r.kind)}`}>
                     {getResultIcon(r.kind)}
                   </span>
-                  
+
                   <div className="flex-1 min-w-0">
-                    <div className="text-xs font-semibold text-ink truncate">
+                    <div className="text-xs font-semibold text-white truncate">
                       {r.pageTitle}
                     </div>
                     <div className="text-[11px] text-green font-medium flex items-center gap-1.5 mt-0.5">
@@ -222,13 +221,13 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ spaces, on
                       )}
                     </div>
                     {r.snippet && (
-                      <div className="text-[11px] text-muted truncate mt-1 italic">
+                      <div className="text-[11px] text-gray-400 truncate mt-1 italic">
                         « {r.snippet} »
                       </div>
                     )}
                   </div>
-                  
-                  <ChevronRight className="w-3.5 h-3.5 text-muted flex-shrink-0 mt-1" />
+
+                  <ChevronRight className="w-3.5 h-3.5 text-gray-400 flex-shrink-0 mt-1" />
                 </button>
               ))}
             </div>
