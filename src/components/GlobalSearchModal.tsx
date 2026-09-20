@@ -31,23 +31,23 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ spaces, on
 
       let found: any[] = [];
 
-      // 1. Search in spaces
-      if (filter === 'all' || filter === 'spaces') {
-        (allPages || []).forEach((p) => {
-          if (normalize(p.title).includes(normalize(query))) {
-            found.push({
-              kind: 'page',
-              pageId: p.id,
-              pageTitle: p.title || 'Sans titre',
-              spaceId: p.space_id,
-              spaceName: (spaceMap[p.space_id] || ''),
-              snippet: null,
-              blockId: null,
-              createdAt: p.created_at,
-            });
-          }
-        });
-      }
+      // 1. Search in pages (by title)
+            if (filter === 'all' || filter === 'pages') {
+              (allPages || []).forEach((p) => {
+                if (normalize(p.title).includes(normalize(query))) {
+                  found.push({
+                    kind: 'page',
+                    pageId: p.id,
+                    pageTitle: p.title || 'Sans titre',
+                    spaceId: p.space_id,
+                    spaceName: (spaceMap[p.space_id] || ''),
+                    snippet: null,
+                    blockId: null,
+                    createdAt: p.created_at,
+                  });
+                }
+              });
+            }
 
       // 2. Search in blocks
       if (filter === 'all' || filter === 'blocks') {
