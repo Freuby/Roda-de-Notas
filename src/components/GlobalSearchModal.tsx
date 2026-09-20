@@ -140,7 +140,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ spaces, on
               placeholder="Rechercher un cours, un mouvement, un chant…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="w-full bg-transparent border-none outline-none text-sm text-white placeholder-gray-400"
+              className="w-full bg-transparent border-none outline-none text-sm text-ink placeholder-gray-400"
             />
             <button onClick={onClose} className="p-1 text-white rounded-lg">
               <X className="w-4 h-4" />
@@ -209,7 +209,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ spaces, on
                   </span>
 
                   <div className="flex-1 min-w-0">
-                    <div className="text-xs font-semibold text-white truncate">
+                    <div className="text-xs font-semibold text-ink truncate">
                       {r.pageTitle}
                     </div>
                     <div className="text-[11px] text-green font-medium flex items-center gap-1.5 mt-0.5">
