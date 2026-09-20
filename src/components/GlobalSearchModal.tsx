@@ -52,14 +52,16 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ spaces, on
       // 2. Search in blocks
       if (filter === 'all' || filter === 'blocks') {
         (allBlocks || []).forEach((b) => {
+          // Handle content as object or JSON string
+          const content = typeof b.content === 'string' ? JSON.parse(b.content || '{}') : (b.content || {});
           // Build a searchable string from all content fields
-          const contentFields: (string | undefined) = [
-            b.content?.text,
-            b.content?.caption,
-            b.content?.title,
-            b.content?.lyrics,
-            b.content?.mnemonic,
-            b.content?.category,
+          const contentFields = [
+            content.text,
+            content.caption,
+            content.title,
+            content.lyrics,
+            content.mnemonic,
+            content.category,
           ];
           const text = contentFields.filter(Boolean).join(' ');
 
@@ -161,7 +163,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ spaces, on
 
             {showFilters && (
               <div className="flex items-center gap-1.5 ml-2">
-                {['all', 'spaces', 'pages', 'blocks'] as const.map((f) => (
+                {(['all', 'spaces', 'pages', 'blocks'] as const).map((f) => (
                   <button
                     key={f}
                     onClick={() => setFilter(f)}
