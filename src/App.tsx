@@ -13,7 +13,6 @@ import { Toast } from './components/Toast';
 import { downloadSpaceArchive } from './lib/archive';
 import { useRodaData } from './hooks/useRodaData';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
-import { useSearch } from './hooks/useSearch';
 import { useBlockHistory } from './hooks/useBlockHistory';
 import { useTheme } from './hooks/useTheme';
 import { MobileTopbar } from './components/MobileTopbar';
@@ -36,7 +35,6 @@ export const App: React.FC = () => {
   // --- Hooks ---
   const { theme, toggleTheme } = useTheme();
   const data = useRodaData(session);
-  const search = useSearch({ spaces: data.spaces, pages: data.pages, blocks: data.blocks });
   const history = useBlockHistory();
 
   // --- Navigation helpers ---
@@ -104,25 +102,6 @@ export const App: React.FC = () => {
     redoBlock,
     deleteActiveBlock,
   });
-
-  // --- Search handlers ---
-  const handleSearchSelect = useCallback(
-    (result: any) => {
-      const action = search.selectResult(result);
-      if (!action) return;
-      if (action.action === 'selectSpace') data.setCurrentSpaceId(action.spaceId);
-      else if (action.action === 'selectPage') {
-        data.setCurrentSpaceId(action.spaceId);
-        data.setCurrentPageId(action.pageId);
-      } else if (action.action === 'selectBlock') {
-        data.setCurrentSpaceId(action.spaceId);
-        data.setCurrentPageId(action.pageId);
-        setActiveBlockId(action.blockId);
-      }
-      setSearchOpen(false);
-    },
-    [search, data]
-  );
 
   // --- Notification handler ---
   const handleSelectNotification = useCallback(async (notif: NotificationItem) => {
@@ -360,9 +339,16 @@ export const App: React.FC = () => {
       {searchOpen && (
         <GlobalSearchModal
           spaces={data.spaces}
-          onSelect={(sId, pId) => {
+          onSelect={(sId, pId, bId) => {
             data.setCurrentSpaceId(sId);
             data.setCurrentPageId(pId);
+            if (bId) {
+              setActiveBlockId(bId);
+              setTimeout(() => {
+                const el = document.querySelector(`[data-block-id="${bId}"]`);
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }, 150);
+            }
             setSearchOpen(false);
           }}
           onClose={() => setSearchOpen(false)}

@@ -18,43 +18,72 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ spaces, on
 
   // Fetch all data on mount
   useEffect(() => {
+    if (!query.trim()) {
+      setResults([]);
+      setBusy(false);
+      return;
+    }
+
+    let isMounted = true;
+    setBusy(true);
+
+    const q = normalize(query);
+
     (async () => {
-      const [{ data: allPages }, { data: allBlocks }] = await Promise.all([
+      const [{ data: allPages }, { data: allBlocks }, { data: allSpaces }] = await Promise.all([
         supabase.from('pages').select('id, title, space_id, created_at'),
-        supabase.from('blocks').select('id, page_id, type, content, created_at')
+        supabase.from('blocks').select('id, page_id, type, content, created_at'),
+        supabase.from('spaces').select('id, name')
       ]);
 
+      if (!isMounted) return;
+
       const spaceMap: Record<string, string> = {};
+      (allSpaces || []).forEach((s) => (spaceMap[s.id] = s.name));
       spaces.forEach((s) => (spaceMap[s.id] = s.name));
+
       const pageMap: Record<string, any> = {};
       (allPages || []).forEach((p) => (pageMap[p.id] = p));
 
-      let found: any[] = [];
+      const found: any[] = [];
 
-      // 1. Search in pages (by title)
-            if (filter === 'all' || filter === 'pages') {
-              (allPages || []).forEach((p) => {
-                if (normalize(p.title).includes(normalize(query))) {
-                  found.push({
-                    kind: 'page',
-                    pageId: p.id,
-                    pageTitle: p.title || 'Sans titre',
-                    spaceId: p.space_id,
-                    spaceName: (spaceMap[p.space_id] || ''),
-                    snippet: null,
-                    blockId: null,
-                    createdAt: p.created_at,
-                  });
-                }
-              });
-            }
+      if (filter === 'all' || filter === 'spaces' || filter === 'pages') {
+        const spaceMatches = (allSpaces || []).filter((s) => normalize(s.name).includes(q)).map((s) => ({
+          kind: 'space',
+          spaceId: s.id,
+          spaceName: s.name || 'Sans nom',
+          pageTitle: s.name || 'Sans nom',
+          pageId: null,
+          blockId: null,
+          snippet: null,
+          createdAt: null,
+        }));
 
-      // 2. Search in blocks
+        const pageMatches = (allPages || []).filter((p) => normalize(p.title).includes(q)).map((p) => ({
+          kind: 'page',
+          pageId: p.id,
+          pageTitle: p.title || 'Sans titre',
+          spaceId: p.space_id,
+          spaceName: spaceMap[p.space_id] || '',
+          snippet: null,
+          blockId: null,
+          createdAt: p.created_at,
+        }));
+
+        found.push(...spaceMatches, ...pageMatches);
+      }
+
       if (filter === 'all' || filter === 'blocks') {
         (allBlocks || []).forEach((b) => {
-          // Handle content as object or JSON string
-          const content = typeof b.content === 'string' ? JSON.parse(b.content || '{}') : (b.content || {});
-          // Build a searchable string from all content fields
+          let content = b.content || {};
+          if (typeof content === 'string') {
+            try {
+              content = JSON.parse(content) || {};
+            } catch {
+              content = {};
+            }
+          }
+
           const contentFields = [
             content.text,
             content.caption,
@@ -62,48 +91,59 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ spaces, on
             content.lyrics,
             content.mnemonic,
             content.category,
+            content.emoji,
+            content.url,
           ];
           const text = contentFields.filter(Boolean).join(' ');
+          if (!text) return;
 
-          if (text && normalize(text).includes(normalize(query))) {
-            // Build a short snippet around the match
-            const lowerText = text.toLowerCase();
-            const lowerQuery = query.toLowerCase();
-            const idx = lowerText.indexOf(lowerQuery);
-            const start = Math.max(0, idx - 40);
-            const end = Math.min(text.length, idx + query.length + 60);
-            let snippet = text.substring(start, end).replace(/\n/g, ' ').trim();
-            if (start > 0) snippet = '…' + snippet;
-            if (end < text.length) snippet = snippet + '…';
+          const normalizedText = normalize(text);
+          if (!normalizedText.includes(q)) return;
 
-            const page = pageMap[b.page_id];
-            if (page) {
-              found.push({
-                kind: 'block',
-                blockId: b.id,
-                blockType: b.type,
-                snippet,
-                pageId: page.id,
-                pageTitle: page.title || 'Sans titre',
-                spaceId: page.space_id,
-                spaceName: (spaceMap[page.space_id] || ''),
-                createdAt: b.created_at,
-              });
-            }
-          }
+          const lowerText = text.toLowerCase();
+          const lowerQuery = query.toLowerCase();
+          const idx = lowerText.indexOf(lowerQuery);
+          const start = Math.max(0, idx - 40);
+          const end = Math.min(text.length, idx + query.length + 60);
+          let snippet = text.substring(start, end).replace(/\n/g, ' ').trim();
+          if (start > 0) snippet = '…' + snippet;
+          if (end < text.length) snippet = snippet + '…';
+
+          const page = pageMap[b.page_id];
+          if (!page) return;
+
+          found.push({
+            kind: 'block',
+            blockId: b.id,
+            blockType: b.type,
+            snippet,
+            pageId: page.id,
+            pageTitle: page.title || 'Sans titre',
+            spaceId: page.space_id,
+            spaceName: spaceMap[page.space_id] || '',
+            createdAt: b.created_at,
+          });
         });
       }
 
-      // De-duplicate: if a page already matched by title, keep block matches too (more specific)
       found.sort((a, b) => {
+        if (a.kind === 'space') return -1;
+        if (b.kind === 'space') return 1;
         if (a.kind === 'page' && b.kind !== 'page') return -1;
         if (a.kind !== 'page' && b.kind === 'page') return 1;
         return 0;
       });
 
-      setResults(found.slice(0, 30));
+      if (isMounted) {
+        setResults(found.slice(0, 30));
+        setBusy(false);
+      }
     })();
-  }, [query, filter]);
+
+    return () => {
+      isMounted = false;
+    };
+  }, [query, filter, spaces]);
 
   const getResultIcon = (kind: string) => {
     switch (kind) {
