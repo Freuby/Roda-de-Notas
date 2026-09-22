@@ -47,7 +47,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ spaces, on
 
       const found: any[] = [];
 
-      if (filter === 'all' || filter === 'spaces' || filter === 'pages') {
+      if (filter === 'all' || filter === 'spaces') {
         const spaceMatches = (allSpaces || []).filter((s) => normalize(s.name).includes(q)).map((s) => ({
           kind: 'space',
           spaceId: s.id,
@@ -58,7 +58,10 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ spaces, on
           snippet: null,
           createdAt: null,
         }));
+        found.push(...spaceMatches);
+      }
 
+      if (filter === 'all' || filter === 'pages') {
         const pageMatches = (allPages || []).filter((p) => normalize(p.title).includes(q)).map((p) => ({
           kind: 'page',
           pageId: p.id,
@@ -69,8 +72,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ spaces, on
           blockId: null,
           createdAt: p.created_at,
         }));
-
-        found.push(...spaceMatches, ...pageMatches);
+        found.push(...pageMatches);
       }
 
       if (filter === 'all' || filter === 'blocks') {
