@@ -7,7 +7,6 @@ import { EmptyState } from './components/EmptyState';
 import { RepertoireView } from './components/RepertoireView';
 import { SongPickerModal } from './components/SongPickerModal';
 import { EmojiPickerModal } from './components/EmojiPickerModal';
-import { GlobalSearchModal } from './components/GlobalSearchModal';
 import { MoveBlockModal } from './components/MoveBlockModal';
 import { Toast } from './components/Toast';
 import { downloadSpaceArchive } from './lib/archive';
@@ -28,8 +27,7 @@ export const App: React.FC = () => {
   const [movingBlock, setMovingBlock] = useState<Block | null>(null);
 
   // --- Picker states ---
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [songPickerBlockId, setSongPickerBlockId] = useState<string | null>(null);
+    const [songPickerBlockId, setSongPickerBlockId] = useState<string | null>(null);
   const [emojiPickerBlockId, setEmojiPickerBlockId] = useState<string | null>(null);
 
   // --- Hooks ---
@@ -95,7 +93,6 @@ export const App: React.FC = () => {
     blockHistory: history.blockHistory,
     historyIndex: history.historyIndex,
     setActiveBlockId,
-    setSearchOpen,
     setToastMessage,
     navigateBlock,
     undoBlock,
@@ -243,7 +240,6 @@ export const App: React.FC = () => {
       <MobileTopbar
         sidebarOpen={sidebarOpen}
         onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
-        onOpenSearch={() => setSearchOpen(true)}
         theme={theme}
         onToggleTheme={toggleTheme}
       />
@@ -269,7 +265,6 @@ export const App: React.FC = () => {
         onDeletePage={data.handleDeletePage}
         onCreateSpace={data.handleCreateSpace}
         onCreatePage={data.handleCreatePage}
-        onOpenSearch={() => setSearchOpen(true)}
         onMarkAllRead={data.markAllNotificationsRead}
         onSelectNotification={handleSelectNotification}
         onReorderPages={handleReorderPages}
@@ -334,26 +329,6 @@ export const App: React.FC = () => {
           )}
         </div>
       </main>
-
-      {/* Global Search Modal */}
-      {searchOpen && (
-        <GlobalSearchModal
-          spaces={data.spaces}
-          onSelect={(sId, pId, bId) => {
-            data.setCurrentSpaceId(sId);
-            data.setCurrentPageId(pId);
-            if (bId) {
-              setActiveBlockId(bId);
-              setTimeout(() => {
-                const el = document.querySelector(`[data-block-id="${bId}"]`);
-                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              }, 150);
-            }
-            setSearchOpen(false);
-          }}
-          onClose={() => setSearchOpen(false)}
-        />
-      )}
 
       {/* Move Block Modal */}
       {movingBlock && (

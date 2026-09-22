@@ -6,7 +6,6 @@ interface KeyboardShortcutsOptions {
   blockHistory: any[];
   historyIndex: number;
   setActiveBlockId: (id: string | null) => void;
-  setSearchOpen: (open: boolean) => void;
   setToastMessage: (msg: string | null) => void;
   navigateBlock: (dir: 'up' | 'down' | 'left' | 'right') => void;
   undoBlock: () => void;
@@ -20,7 +19,6 @@ export function useKeyboardShortcuts({
   blockHistory,
   historyIndex,
   setActiveBlockId,
-  setSearchOpen,
   setToastMessage,
   navigateBlock,
   undoBlock,
@@ -29,18 +27,10 @@ export function useKeyboardShortcuts({
 }: KeyboardShortcutsOptions) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Cmd/Ctrl + K — open global search
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        if (session) setSearchOpen(true);
-        return;
-      }
-
       if (!session) return;
 
-      // Escape — close search or deselect block
+      // Escape — deselect block
       if (e.key === 'Escape') {
-        setSearchOpen(false);
         setActiveBlockId(null);
         return;
       }

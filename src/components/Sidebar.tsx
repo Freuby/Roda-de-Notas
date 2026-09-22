@@ -1,7 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Space, Page, NotificationItem } from '../types';
 import {
-  Search,
   Plus,
   Lock,
   Music,

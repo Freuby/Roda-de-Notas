@@ -1,10 +1,9 @@
 import React from 'react';
-import { Menu, Search, Moon, Sun } from 'lucide-react';
+import { Menu, Moon, Sun } from 'lucide-react';
 
 interface MobileTopbarProps {
   sidebarOpen: boolean;
   onToggleSidebar: () => void;
-  onOpenSearch: () => void;
   theme: 'light' | 'dark';
   onToggleTheme: () => void;
 }
@@ -12,7 +11,6 @@ interface MobileTopbarProps {
 export const MobileTopbar: React.FC<MobileTopbarProps> = ({
   sidebarOpen,
   onToggleSidebar,
-  onOpenSearch,
   theme,
   onToggleTheme,
 }) => {
@@ -27,9 +25,6 @@ export const MobileTopbar: React.FC<MobileTopbarProps> = ({
       <div className="flex items-center gap-2">
         <button onClick={onToggleTheme} className="p-2 text-white hover:text-white">
           {theme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
-        </button>
-        <button onClick={onOpenSearch} className="p-2 text-white">
-          <Search className="w-4 h-4" />
         </button>
       </div>
     </div>
