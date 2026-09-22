@@ -16,7 +16,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ spaces, on
   const [busy, setBusy] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
 
-  // Fetch all data on mount
+  // Simple search - just filter spaces by name
   useEffect(() => {
     if (!query.trim()) {
       setResults([]);
@@ -27,7 +27,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ spaces, on
     let isMounted = true;
     setBusy(true);
 
-    const q = normalize(query);
+    const q = query.toLowerCase();
 
     (async () => {
       const [{ data: allPages }, { data: allBlocks }, { data: allSpaces }] = await Promise.all([
@@ -47,8 +47,9 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ spaces, on
 
       const found: any[] = [];
 
+      // Search spaces
       if (filter === 'all' || filter === 'spaces') {
-        const spaceMatches = (allSpaces || []).filter((s) => normalize(s.name).includes(q)).map((s) => ({
+        const spaceMatches = (allSpaces || []).filter((s) => s.name.toLowerCase().includes(q)).map((s) => ({
           kind: 'space',
           spaceId: s.id,
           spaceName: s.name || 'Sans nom',
@@ -61,8 +62,9 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ spaces, on
         found.push(...spaceMatches);
       }
 
+      // Search pages by title
       if (filter === 'all' || filter === 'pages') {
-        const pageMatches = (allPages || []).filter((p) => normalize(p.title).includes(q)).map((p) => ({
+        const pageMatches = (allPages || []).filter((p) => p.title.toLowerCase().includes(q)).map((p) => ({
           kind: 'page',
           pageId: p.id,
           pageTitle: p.title || 'Sans titre',
@@ -75,9 +77,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ spaces, on
         found.push(...pageMatches);
       }
 
-      // Track pages that have matching blocks so we can also return them as page results
-      const pagesWithMatchingBlocks = new Set<string>();
-
+      // Search blocks by content
       if (filter === 'all' || filter === 'blocks') {
         (allBlocks || []).forEach((b) => {
           let content = b.content || {};
@@ -89,69 +89,22 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ spaces, on
             }
           }
 
-          const contentFields = [
-            content.text,
-            content.caption,
-            content.title,
-            content.lyrics,
-            content.mnemonic,
-            content.category,
-            content.emoji,
-            content.url,
-            content.mediaLink,
-          ];
-          const text = contentFields.filter(Boolean).join(' ');
-          if (!text) return;
-
-          const normalizedText = normalize(text);
-          if (!normalizedText.includes(q)) return;
-
-          // Use normalized text for snippet index to handle accents correctly
-          const lowerText = normalizedText;
-          const lowerQuery = q;
-          const idx = lowerText.indexOf(lowerQuery);
-          const start = Math.max(0, idx - 40);
-          const end = Math.min(text.length, idx + query.length + 60);
-          let snippet = text.substring(start, end).replace(/\n/g, ' ').trim();
-          if (start > 0) snippet = '…' + snippet;
-          if (end < text.length) snippet = snippet + '…';
+          const text = (content.text || '').toLowerCase();
+          if (!text.includes(q)) return;
 
           const page = pageMap[b.page_id];
           if (!page) return;
-
-          // Track this page as having matching content
-          pagesWithMatchingBlocks.add(page.id);
 
           found.push({
             kind: 'block',
             blockId: b.id,
             blockType: b.type,
-            snippet,
+            snippet: text,
             pageId: page.id,
             pageTitle: page.title || 'Sans titre',
             spaceId: page.space_id,
             spaceName: spaceMap[page.space_id] || '',
             createdAt: b.created_at,
-          });
-        });
-      }
-
-      // Also return pages that have matching block content (as page results)
-      if ((filter === 'all' || filter === 'pages') && pagesWithMatchingBlocks.size > 0) {
-        pagesWithMatchingBlocks.forEach((pageId) => {
-          const page = pageMap[pageId];
-          if (!page) return;
-          // Avoid duplicate if page title also matched
-          if (found.some((r) => r.kind === 'page' && r.pageId === pageId)) return;
-          found.push({
-            kind: 'page',
-            pageId: page.id,
-            pageTitle: page.title || 'Sans titre',
-            spaceId: page.space_id,
-            spaceName: spaceMap[page.space_id] || '',
-            snippet: 'Contenu correspondant dans ce cours',
-            blockId: null,
-            createdAt: page.created_at,
           });
         });
       }
@@ -292,11 +245,6 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ spaces, on
                         </>
                       )}
                     </div>
-                    {r.snippet && (
-                      <div className="text-[11px] text-gray-400 truncate mt-1 italic">
-                        « {r.snippet} »
-                      </div>
-                    )}
                   </div>
 
                   <ChevronRight className="w-3.5 h-3.5 text-gray-400 flex-shrink-0 mt-1" />
