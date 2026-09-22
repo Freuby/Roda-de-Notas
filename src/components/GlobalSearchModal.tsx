@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Search, X, FileText, Music, ChevronRight, Filter, Calendar } from 'lucide-react';
+import { Search, X, FileText, ChevronRight, Filter, Calendar } from 'lucide-react';
 import { normalize } from '../lib/utils';
 
 interface GlobalSearchModalProps {
@@ -75,6 +75,9 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ spaces, on
         found.push(...pageMatches);
       }
 
+      // Track pages that have matching blocks so we can also return them as page results
+      const pagesWithMatchingBlocks = new Set<string>();
+
       if (filter === 'all' || filter === 'blocks') {
         (allBlocks || []).forEach((b) => {
           let content = b.content || {};
@@ -95,6 +98,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ spaces, on
             content.category,
             content.emoji,
             content.url,
+            content.mediaLink,
           ];
           const text = contentFields.filter(Boolean).join(' ');
           if (!text) return;
@@ -102,8 +106,9 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ spaces, on
           const normalizedText = normalize(text);
           if (!normalizedText.includes(q)) return;
 
-          const lowerText = text.toLowerCase();
-          const lowerQuery = query.toLowerCase();
+          // Use normalized text for snippet index to handle accents correctly
+          const lowerText = normalizedText;
+          const lowerQuery = q;
           const idx = lowerText.indexOf(lowerQuery);
           const start = Math.max(0, idx - 40);
           const end = Math.min(text.length, idx + query.length + 60);
@@ -113,6 +118,9 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ spaces, on
 
           const page = pageMap[b.page_id];
           if (!page) return;
+
+          // Track this page as having matching content
+          pagesWithMatchingBlocks.add(page.id);
 
           found.push({
             kind: 'block',
@@ -124,6 +132,26 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ spaces, on
             spaceId: page.space_id,
             spaceName: spaceMap[page.space_id] || '',
             createdAt: b.created_at,
+          });
+        });
+      }
+
+      // Also return pages that have matching block content (as page results)
+      if ((filter === 'all' || filter === 'pages') && pagesWithMatchingBlocks.size > 0) {
+        pagesWithMatchingBlocks.forEach((pageId) => {
+          const page = pageMap[pageId];
+          if (!page) return;
+          // Avoid duplicate if page title also matched
+          if (found.some((r) => r.kind === 'page' && r.pageId === pageId)) return;
+          found.push({
+            kind: 'page',
+            pageId: page.id,
+            pageTitle: page.title || 'Sans titre',
+            spaceId: page.space_id,
+            spaceName: spaceMap[page.space_id] || '',
+            snippet: 'Contenu correspondant dans ce cours',
+            blockId: null,
+            createdAt: page.created_at,
           });
         });
       }
