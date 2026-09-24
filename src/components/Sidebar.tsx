@@ -17,6 +17,7 @@ import {
   ChevronUp,
   Moon,
   Sun,
+  Search,
 } from 'lucide-react';
 import { SPACE_ICONS } from './Icons';
 import { supabase } from '../lib/supabase';
