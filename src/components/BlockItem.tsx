@@ -210,7 +210,7 @@ export const BlockItem: React.FC<BlockItemProps> = ({
           </div>
         );
       case 'divider':
-        return <hr className="border-none border-t border-dashed border-violet my-3 w-full" />;
+              return <hr className="border-none border-t-2 border-dashed border-violet my-3 w-full" />;
       case 'video':
         return (
           <VideoBlock

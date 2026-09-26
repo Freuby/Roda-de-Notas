@@ -22,9 +22,13 @@ export default {
                 soft: 'var(--green-soft)',
               },
               ochre: {
-                DEFAULT: 'var(--ochre)',
-                soft: 'var(--ochre-soft)',
-              },
+                              DEFAULT: 'var(--ochre)',
+                              soft: 'var(--ochre-soft)',
+                            },
+                            violet: {
+                              DEFAULT: 'var(--violet)',
+                              soft: 'var(--violet-soft)',
+                            },
               // Capoeira group colors
                       capoeiraBlue: {
                         DEFAULT: 'var(--capoeira-blue)',
