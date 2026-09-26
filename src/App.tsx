@@ -185,21 +185,25 @@ export const App: React.FC = () => {
 
   // --- Song picker handler ---
   const handleSongSelect = useCallback((song: Song) => {
-    if (!songPickerBlockId) return;
-    const block = data.blocks.find((b) => b.id === songPickerBlockId);
-    if (block) {
-      data.handleUpdateBlockContent(block, {
-        song_id: song.id,
-        title: song.title,
-        category: song.category,
-        mnemonic: song.mnemonic,
-        lyrics: song.lyrics,
-        mediaLink: song.mediaLink,
-      });
-    }
-    setSongPickerBlockId(null);
-    setToastMessage('Chant sélectionné ✓');
-  }, [songPickerBlockId, data]);
+      if (!songPickerBlockId) return;
+      const block = data.blocks.find((b) => b.id === songPickerBlockId);
+      if (block) {
+        data.handleUpdateBlockContent(block, {
+          song_id: song.id,
+          title: song.title,
+          category: song.category,
+          mnemonic: song.mnemonic,
+          lyrics: song.lyrics,
+          mediaLink: song.mediaLink,
+        });
+      }
+      setSongPickerBlockId(null);
+      setToastMessage('Chant sélectionné ✓');
+    }, [songPickerBlockId, data]);
+  
+    const handleOpenSearch = useCallback(() => {
+      setToastMessage('Recherche globale (à implémenter)');
+    }, []);
 
   // --- Emoji picker handler ---
   const handleEmojiSelect = useCallback((emoji: string) => {
@@ -269,6 +273,7 @@ export const App: React.FC = () => {
         onSelectNotification={handleSelectNotification}
         onReorderPages={handleReorderPages}
         onMoveSpace={handleMoveSpace}
+        onOpenSearch={handleOpenSearch}
         theme={theme}
         onToggleTheme={toggleTheme}
       />
