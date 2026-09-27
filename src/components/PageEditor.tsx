@@ -76,15 +76,16 @@ export const PageEditor: React.FC<PageEditorProps> = ({
   };
 
   return (
-    <div>
-      <div className="flex items-center justify-between gap-4 mb-1">
+    <div className="space-y-4">
+      {/* Fixed Header - Page Title & Lock Button (sticky top like nav bar) */}
+      <div className="flex items-center justify-between gap-4 mb-1 sticky top-0 z-10 bg-bg/95 backdrop-blur-sm py-3 border-b border-border shadow-sm">
         <input
           type="text"
           value={page.title || ''}
           readOnly={page.locked}
           onChange={(e) => onUpdateTitle(e.target.value)}
           placeholder="Titre du cours"
-          className="text-3xl md:text-4xl font-display font-bold text-ink bg-transparent border-none outline-none w-full"
+          className="text-2xl md:text-3xl font-display font-bold text-ink bg-transparent border-none outline-none w-full"
         />
         <button
           onClick={onToggleLock}
@@ -100,7 +101,7 @@ export const PageEditor: React.FC<PageEditorProps> = ({
         </button>
       </div>
 
-      <p className="text-xs text-muted mb-6">
+      <p className="text-xs text-muted">
         Modifié {fmtDate(page.updated_at || page.created_at)} · espace « {spaceName} »
       </p>
 
