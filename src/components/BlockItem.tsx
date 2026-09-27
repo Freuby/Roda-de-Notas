@@ -204,8 +204,7 @@ export const BlockItem: React.FC<BlockItemProps> = ({
         );
       case 'callout':
         return (
-          <div className="bg-ochre-soft border border-ochre/40 rounded-xl p-3 flex items-start gap-2.5 text-sm text-ink">
-            <span className="text-base select-none">{content.emoji || '💡'}</span>
+          <div className="bg-ochre-soft border border-ochre/40 rounded-xl p-3 text-center text-sm text-ink">
             {renderContentEditable('Note importante…')}
           </div>
         );
