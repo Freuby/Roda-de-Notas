@@ -332,20 +332,20 @@ export function useRodaData(session: any) {
   };
 
   const handleUpdatePageTitle = async (title: string) => {
-      if (!currentPageId || currentPageId === '__repertoire__') return;
-      const now = new Date().toISOString();
-      setPages(pages.map((p) => (p.id === currentPageId ? { ...p, title, updated_by: session.user.id, updated_at: now } : p)));
-      await supabase.from('pages').update({ title, updated_by: session.user.id, updated_at: now }).eq('id', currentPageId);
-    };
+        if (!currentPageId || currentPageId === '__repertoire__') return;
+        const now = new Date().toISOString();
+        setPages(pages.map((p) => (p.id === currentPageId ? { ...p, title, updated_at: now } : p)));
+        await supabase.from('pages').update({ title, updated_at: now }).eq('id', currentPageId);
+      };
 
   const handleToggleLock = async () => {
-      const page = pages.find((p) => p.id === currentPageId);
-      if (!page) return;
-      const nextLocked = !page.locked;
-      const now = new Date().toISOString();
-      setPages(pages.map((p) => (p.id === page.id ? { ...p, locked: nextLocked, updated_by: session.user.id, updated_at: now } : p)));
-      await supabase.from('pages').update({ locked: nextLocked, updated_by: session.user.id, updated_at: now }).eq('id', page.id);
-    };
+        const page = pages.find((p) => p.id === currentPageId);
+        if (!page) return;
+        const nextLocked = !page.locked;
+        const now = new Date().toISOString();
+        setPages(pages.map((p) => (p.id === page.id ? { ...p, locked: nextLocked, updated_at: now } : p)));
+        await supabase.from('pages').update({ locked: nextLocked, updated_at: now }).eq('id', page.id);
+      };
 
   const handleReorderPage = async (draggedId: string, targetId: string, position: 'before' | 'after') => {
     if (draggedId === targetId) return;
