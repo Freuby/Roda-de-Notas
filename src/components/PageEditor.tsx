@@ -102,7 +102,7 @@ export const PageEditor: React.FC<PageEditorProps> = ({
           </button>
         </div>
         <p className="text-xs text-muted pb-3">
-                  Modifié par <span className="font-semibold text-green">{profileMap[page.created_by!] || 'Inconnu'}</span>{fmtDate(page.updated_at || page.created_at)} · espace « {spaceName} »
+                  Modifié par <span className="font-semibold text-green">{profileMap[page.created_by!] || 'Inconnu'}</span> le {fmtDate(page.updated_at || page.created_at)} · espace « {spaceName} »
                 </p>
       </div>
 
