@@ -30,6 +30,7 @@ export interface Page {
   space_id: string;
   title: string;
   created_by: string;
+  updated_by?: string;
   order_index: number;
   locked?: boolean;
   created_at?: string;
