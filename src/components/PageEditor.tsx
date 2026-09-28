@@ -77,33 +77,34 @@ export const PageEditor: React.FC<PageEditorProps> = ({
 
   return (
     <div className="space-y-4">
-      {/* Fixed Header - Page Title & Lock Button (sticky top like nav bar) */}
-      <div className="flex items-center justify-between gap-4 mb-1 sticky top-0 z-10 bg-bg/95 backdrop-blur-sm py-3 border-b border-border shadow-sm">
-        <input
-          type="text"
-          value={page.title || ''}
-          readOnly={page.locked}
-          onChange={(e) => onUpdateTitle(e.target.value)}
-          placeholder="Titre du cours"
-          className="text-2xl md:text-3xl font-display font-bold text-ink bg-transparent border-none outline-none w-full"
-        />
-        <button
-          onClick={onToggleLock}
-          className={`p-2 rounded-lg border text-xs font-semibold flex items-center gap-1.5 flex-shrink-0 transition-colors ${
-            page.locked
-              ? 'bg-ochre-soft text-[#7a5c10] border-ochre hover:bg-ochre hover:text-white'
-              : 'bg-surface text-muted border-border hover:text-ink'
-          }`}
-          title={page.locked ? 'Déverrouiller' : 'Verrouiller'}
-        >
-          {page.locked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
-          <span>{page.locked ? 'Verrouillé' : 'Verrouiller'}</span>
-        </button>
+      {/* Fixed Header - Page Title & Info (sticky top like nav bar) */}
+      <div className="sticky top-0 z-10 bg-bg/95 backdrop-blur-sm border-b border-border shadow-sm">
+        <div className="flex items-center justify-between gap-4 py-3">
+          <input
+            type="text"
+            value={page.title || ''}
+            readOnly={page.locked}
+            onChange={(e) => onUpdateTitle(e.target.value)}
+            placeholder="Titre du cours"
+            className="text-2xl md:text-3xl font-display font-bold text-ink bg-transparent border-none outline-none w-full"
+          />
+          <button
+            onClick={onToggleLock}
+            className={`p-2 rounded-lg border text-xs font-semibold flex items-center gap-1.5 flex-shrink-0 transition-colors ${
+              page.locked
+                ? 'bg-ochre-soft text-[#7a5c10] border-ochre hover:bg-ochre hover:text-white'
+                : 'bg-surface text-muted border-border hover:text-ink'
+            }`}
+            title={page.locked ? 'Déverrouiller' : 'Verrouiller'}
+          >
+            {page.locked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
+            <span>{page.locked ? 'Verrouillé' : 'Verrouiller'}</span>
+          </button>
+        </div>
+        <p className="text-xs text-muted pb-3">
+          Modifié par <span className="font-semibold text-green">{profileMap[page.updated_by!] || page.updated_by!}</span>{fmtDate(page.updated_at || page.created_at)} · espace « {spaceName} »
+        </p>
       </div>
-
-      <p className="text-xs text-muted">
-        Modifié par <span className="font-semibold text-green">{profileMap[page.updated_by!] || page.updated_by!}</span>{fmtDate(page.updated_at || page.created_at)} · espace « {spaceName} »
-      </p>
 
       {/* Prerequisites Bar */}
       <PrerequisitesBar
