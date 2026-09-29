@@ -258,47 +258,6 @@ export const BlockItem: React.FC<BlockItemProps> = ({
                       {content.text || ''}
                     </div>
                   </div>
-      
-                  {isToggleOpen && (
-                    <div className="ml-6 pl-3 border-l-2 border-green-soft mt-2 space-y-2">
-                      {childBlocks.map((child) => (
-                        <BlockItem
-                          key={child.id}
-                          block={child}
-                          locked={locked}
-                          activeBlockId={activeBlockId}
-                          commentsCount={0}
-                          openCommentBlockId={openCommentBlockId}
-                          openToggles={openToggles}
-                          profileMap={profileMap}
-                          onSelectBlock={onSelectBlock}
-                          onUpdateContent={onUpdateContent}
-                          onChangeType={onChangeType}
-                          onDuplicate={onDuplicate}
-                          onMoveToPage={onMoveToPage}
-                          onDelete={onDelete}
-                          onToggleComment={onToggleComment}
-                          onOpenEmojiPicker={onOpenEmojiPicker}
-                          onOpenSongPicker={onOpenSongPicker}
-                          onToggleCollapse={onToggleCollapse}
-                          onAddChildBlock={onAddChildBlock}
-                          onReorderBlock={onReorderBlock}
-                        />
-                      ))}
-                      {!locked && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onAddChildBlock(block.id);
-                          }}
-                          className="text-xs text-muted hover:text-ink hover:bg-bg px-2 py-1 rounded-md flex items-center gap-1"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                          <span>Ajouter un élément ici</span>
-                        </button>
-                      )}
-                    </div>
-                  )}
                 </div>
               );
       default:
