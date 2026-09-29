@@ -242,7 +242,21 @@ export const BlockItem: React.FC<BlockItemProps> = ({
                     >
                       <ChevronRight className="w-4 h-4" />
                     </button>
-                    {renderContentEditable(content.text || 'Titre dépliant…', 'text-green font-semibold')}
+                    <div
+                      contentEditable={!locked}
+                      suppressContentEditableWarning
+                      data-placeholder="Titre dépliant…"
+                      onBlur={(e) => onUpdateContent(block, { text: e.currentTarget.innerText })}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSelectBlock(block.id);
+                      }}
+                      className={`outline-none min-w-[60px] flex-1 text-ink cursor-text text-green font-semibold ${
+                        !content.text && !locked ? 'before:content-[attr(data-placeholder)] before:text-muted' : ''
+                      }`}
+                    >
+                      {content.text || ''}
+                    </div>
                   </div>
       
                   {isToggleOpen && (
