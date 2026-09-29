@@ -431,7 +431,7 @@ export const BlockItem: React.FC<BlockItemProps> = ({
         {/* Main Content Area - clicking here selects the block */}
         <div
           onClick={() => onSelectBlock(block.id)}
-          className={`flex-1 min-w-0 w-full py-2 px-3 ${
+          className={`flex-1 min-w-0 w-full py-px px-2 ${
             !locked && shouldShowActions ? 'pt-4 block-content-padded' : ''
           } transition-all duration-200 cursor-pointer`}
         >
