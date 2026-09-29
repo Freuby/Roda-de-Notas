@@ -184,7 +184,7 @@ export const BlockItem: React.FC<BlockItemProps> = ({
         );
       case 'paragraph':
         return (
-          <div className="py-1 text-sm leading-relaxed">
+          <div className="py-0.5 text-sm leading-relaxed">
             {renderContentEditable('Écrivez quelque chose…')}
           </div>
         );
