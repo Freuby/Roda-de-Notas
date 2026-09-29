@@ -178,13 +178,13 @@ export const BlockItem: React.FC<BlockItemProps> = ({
         );
       case 'subheading':
         return (
-          <div className="border-l-4 border-violet pl-3 py-0.5 font-display font-semibold text-lg text-[#5a4a2c]">
+          <div className="border-l-4 border-violet pl-3 py-0.25 font-display font-semibold text-lg text-[#5a4a2c]">
             {renderContentEditable('Sous-titre…')}
           </div>
         );
       case 'paragraph':
         return (
-          <div className="py-1 text-sm leading-relaxed">
+          <div className="py-0.5 text-sm leading-relaxed">
             {renderContentEditable('Écrivez quelque chose…')}
           </div>
         );
