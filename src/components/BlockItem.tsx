@@ -426,21 +426,6 @@ export const BlockItem: React.FC<BlockItemProps> = ({
           {renderBlockBody()}
         </div>
 
-        {/* Drag handle on left - ONLY this initiates drag */}
-        {!locked && onReorderBlock && (
-          <div
-            draggable
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-            className="absolute left-0 top-1/2 -translate-y-1/2 flex items-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-1 text-muted cursor-grab active:cursor-grabbing"
-          >
-            <GripVertical className="w-3.5 h-3.5" />
-          </div>
-        )}
-
         {/* Toggle children */}
         {isToggleOpen && (
           <div className="ml-4 pl-3 border-l-2 border-green-soft mt-2 space-y-2 w-full">
