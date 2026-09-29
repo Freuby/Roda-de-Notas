@@ -316,92 +316,107 @@ export const BlockItem: React.FC<BlockItemProps> = ({
         } ${dropPos === 'after' ? 'border-b-2 border-terracotta' : ''}`}
       >
         {/* Action Bar - appears on hover/selection */}
-        {!locked && shouldShowActions && (
-          <div className="w-full flex items-center justify-between px-3 py-1.5 bg-bg/50 backdrop-blur-sm rounded-t-lg transition-all duration-200 block-action-bar">
-            <div className="flex items-center gap-2">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onToggleComment(block.id);
-                }}
-                className={`p-1 rounded text-xs flex items-center gap-1 ${
-                  commentsCount > 0
-                    ? 'text-terracotta bg-terracotta-soft font-semibold'
-                    : 'text-muted hover:text-ink hover:bg-bg'
-                }`}
-                title="Commentaires"
-              >
-                <MessageSquare className="w-3.5 h-3.5" />
-                {commentsCount > 0 && <span>{commentsCount}</span>}
-              </button>
-
-              {/* Info tooltip - clickable */}
-              <button
-                onClick={handleInfoClick}
-                data-block-menu
-                className="p-1 text-muted hover:text-ink rounded cursor-pointer"
-                title="Informations"
-              >
-                <Info className="w-3 h-3" />
-              </button>
-
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onOpenEmojiPicker(block.id);
-                }}
-                className="p-1 text-muted hover:text-ink hover:bg-bg rounded"
-                title="Insérer un émoji"
-              >
-                <Smile className="w-3.5 h-3.5" />
-              </button>
-
-              <button
-                onClick={handleTypeMenuClick}
-                data-block-menu
-                className="p-1 text-muted hover:text-ink hover:bg-bg rounded"
-                title="Changer de type"
-              >
-                <ArrowRightLeft className="w-3.5 h-3.5" />
-              </button>
-
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDuplicate(block);
-                }}
-                className="p-1 text-muted hover:text-ink hover:bg-bg rounded"
-                title="Dupliquer"
-              >
-                <Copy className="w-3.5 h-3.5" />
-              </button>
-
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onMoveToPage(block);
-                }}
-                className="p-1 text-muted hover:text-ink hover:bg-bg rounded"
-                title="Déplacer vers un autre cours"
-              >
-                <ArrowUpRight className="w-3.5 h-3.5" />
-              </button>
-
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete(block);
-                }}
-                className="p-1 text-muted hover:text-terracotta hover:bg-bg rounded"
-                title="Supprimer"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Main Content Area - clicking here selects the block */}
+                {!locked && shouldShowActions && (
+                  <div className="w-full flex items-center justify-between px-3 py-1.5 bg-bg/50 backdrop-blur-sm rounded-t-lg transition-all duration-200 block-action-bar">
+                    <div className="flex items-center gap-2">
+                      {/* Drag handle on left - ONLY this initiates drag */}
+                      {!locked && onReorderBlock && (
+                        <div
+                          draggable
+                          onDragStart={handleDragStart}
+                          onDragEnd={handleDragEnd}
+                          onDragOver={handleDragOver}
+                          onDragLeave={handleDragLeave}
+                          onDrop={handleDrop}
+                          className="p-1 text-muted cursor-grab active:cursor-grabbing"
+                        >
+                          <GripVertical className="w-3.5 h-3.5" />
+                        </div>
+                      )}
+                      
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onToggleComment(block.id);
+                        }}
+                        className={`p-1 rounded text-xs flex items-center gap-1 ${
+                          commentsCount > 0
+                            ? 'text-terracotta bg-terracotta-soft font-semibold'
+                            : 'text-muted hover:text-ink hover:bg-bg'
+                        }`}
+                        title="Commentaires"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5" />
+                        {commentsCount > 0 && <span>{commentsCount}</span>}
+                      </button>
+        
+                      {/* Info tooltip - clickable */}
+                      <button
+                        onClick={handleInfoClick}
+                        data-block-menu
+                        className="p-1 text-muted hover:text-ink rounded cursor-pointer"
+                        title="Informations"
+                      >
+                        <Info className="w-3 h-3" />
+                      </button>
+        
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onOpenEmojiPicker(block.id);
+                        }}
+                        className="p-1 text-muted hover:text-ink hover:bg-bg rounded"
+                        title="Insérer un émoji"
+                      >
+                        <Smile className="w-3.5 h-3.5" />
+                      </button>
+        
+                      <button
+                        onClick={handleTypeMenuClick}
+                        data-block-menu
+                        className="p-1 text-muted hover:text-ink hover:bg-bg rounded"
+                        title="Changer de type"
+                      >
+                        <ArrowRightLeft className="w-3.5 h-3.5" />
+                      </button>
+        
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDuplicate(block);
+                        }}
+                        className="p-1 text-muted hover:text-ink hover:bg-bg rounded"
+                        title="Dupliquer"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                      </button>
+        
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onMoveToPage(block);
+                        }}
+                        className="p-1 text-muted hover:text-ink hover:bg-bg rounded"
+                        title="Déplacer vers un autre cours"
+                      >
+                        <ArrowUpRight className="w-3.5 h-3.5" />
+                      </button>
+        
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDelete(block);
+                        }}
+                        className="p-1 text-muted hover:text-terracotta hover:bg-bg rounded"
+                        title="Supprimer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+        
+                {/* Main Content Area - clicking here selects the block */}
         <div
           onClick={() => onSelectBlock(block.id)}
           className={`flex-1 min-w-0 w-full py-px px-2 ${
