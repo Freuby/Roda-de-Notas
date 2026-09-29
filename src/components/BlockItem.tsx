@@ -227,66 +227,66 @@ export const BlockItem: React.FC<BlockItemProps> = ({
           />
         );
       case 'toggle':
-        return (
-          <div className="w-full">
-            <div className="flex items-center gap-2 font-display font-semibold text-base text-green">
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onToggleCollapse(block.id);
-                }}
-                className={`p-1 text-green hover:bg-green-soft rounded transition-transform ${
-                  isToggleOpen ? 'rotate-90' : ''
-                }`}
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-              {renderContentEditable('Titre dépliant…', 'text-green font-semibold')}
-            </div>
-
-            {isToggleOpen && (
-              <div className="ml-6 pl-3 border-l-2 border-green-soft mt-2 space-y-2">
-                {childBlocks.map((child) => (
-                  <BlockItem
-                    key={child.id}
-                    block={child}
-                    locked={locked}
-                    activeBlockId={activeBlockId}
-                    commentsCount={0}
-                    openCommentBlockId={openCommentBlockId}
-                    openToggles={openToggles}
-                    profileMap={profileMap}
-                    onSelectBlock={onSelectBlock}
-                    onUpdateContent={onUpdateContent}
-                    onChangeType={onChangeType}
-                    onDuplicate={onDuplicate}
-                    onMoveToPage={onMoveToPage}
-                    onDelete={onDelete}
-                    onToggleComment={onToggleComment}
-                    onOpenEmojiPicker={onOpenEmojiPicker}
-                    onOpenSongPicker={onOpenSongPicker}
-                    onToggleCollapse={onToggleCollapse}
-                    onAddChildBlock={onAddChildBlock}
-                    onReorderBlock={onReorderBlock}
-                  />
-                ))}
-                {!locked && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onAddChildBlock(block.id);
-                    }}
-                    className="text-xs text-muted hover:text-ink hover:bg-bg px-2 py-1 rounded-md flex items-center gap-1"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Ajouter un élément ici</span>
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        );
+              return (
+                <div className="w-full">
+                  <div className="flex items-center gap-2 font-display font-semibold text-base text-green">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onToggleCollapse(block.id);
+                      }}
+                      className={`p-1 text-green hover:bg-green-soft rounded transition-transform ${
+                        isToggleOpen ? 'rotate-90' : ''
+                      }`}
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                    {renderContentEditable(content.text || 'Titre dépliant…', 'text-green font-semibold')}
+                  </div>
+      
+                  {isToggleOpen && (
+                    <div className="ml-6 pl-3 border-l-2 border-green-soft mt-2 space-y-2">
+                      {childBlocks.map((child) => (
+                        <BlockItem
+                          key={child.id}
+                          block={child}
+                          locked={locked}
+                          activeBlockId={activeBlockId}
+                          commentsCount={0}
+                          openCommentBlockId={openCommentBlockId}
+                          openToggles={openToggles}
+                          profileMap={profileMap}
+                          onSelectBlock={onSelectBlock}
+                          onUpdateContent={onUpdateContent}
+                          onChangeType={onChangeType}
+                          onDuplicate={onDuplicate}
+                          onMoveToPage={onMoveToPage}
+                          onDelete={onDelete}
+                          onToggleComment={onToggleComment}
+                          onOpenEmojiPicker={onOpenEmojiPicker}
+                          onOpenSongPicker={onOpenSongPicker}
+                          onToggleCollapse={onToggleCollapse}
+                          onAddChildBlock={onAddChildBlock}
+                          onReorderBlock={onReorderBlock}
+                        />
+                      ))}
+                      {!locked && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onAddChildBlock(block.id);
+                          }}
+                          className="text-xs text-muted hover:text-ink hover:bg-bg px-2 py-1 rounded-md flex items-center gap-1"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Ajouter un élément ici</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
       default:
         return null;
     }
