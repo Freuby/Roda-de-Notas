@@ -304,35 +304,35 @@ export const BlockItem: React.FC<BlockItemProps> = ({
   return (
     <>
       <div
-        ref={containerRef}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => {
-          setIsHovered(false);
-        }}
-        className={`group relative flex flex-col items-start gap-0 py-1 rounded-lg hover:bg-black/[0.015] transition-all duration-200 block-animated ${
-          isActive || isHovered ? 'is-active is-hovered' : ''
-        } ${
-          dropPos === 'before' ? 'border-t-2 border-terracotta' : ''
-        } ${dropPos === 'after' ? 'border-b-2 border-terracotta' : ''}`}
-      >
+              ref={containerRef}
+              onMouseEnter={() => setIsHovered(true)}
+              onMouseLeave={() => {
+                setIsHovered(false);
+              }}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              className={`group relative flex flex-col items-start gap-0 py-1 rounded-lg hover:bg-black/[0.015] transition-all duration-200 block-animated ${
+                isActive || isHovered ? 'is-active is-hovered' : ''
+              } ${
+                dropPos === 'before' ? 'border-t-2 border-terracotta' : ''
+              } ${dropPos === 'after' ? 'border-b-2 border-terracotta' : ''}`}
+            >
         {/* Action Bar - appears on hover/selection */}
                 {!locked && shouldShowActions && (
                   <div className="w-full flex items-center justify-between px-3 py-1.5 bg-bg/50 backdrop-blur-sm rounded-t-lg transition-all duration-200 block-action-bar">
                     <div className="flex items-center gap-2">
                       {/* Drag handle on left - ONLY this initiates drag */}
-                      {!locked && onReorderBlock && (
-                        <div
-                          draggable
-                          onDragStart={handleDragStart}
-                          onDragEnd={handleDragEnd}
-                          onDragOver={handleDragOver}
-                          onDragLeave={handleDragLeave}
-                          onDrop={handleDrop}
-                          className="p-1 text-muted cursor-grab active:cursor-grabbing"
-                        >
-                          <GripVertical className="w-3.5 h-3.5" />
-                        </div>
-                      )}
+                                            {!locked && onReorderBlock && (
+                                              <div
+                                                draggable
+                                                onDragStart={handleDragStart}
+                                                onDragEnd={handleDragEnd}
+                                                className="p-1 text-muted cursor-grab active:cursor-grabbing"
+                                              >
+                                                <GripVertical className="w-3.5 h-3.5" />
+                                              </div>
+                                            )}
                       
                       <button
                         onClick={(e) => {
