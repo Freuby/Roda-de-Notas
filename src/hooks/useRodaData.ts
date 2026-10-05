@@ -163,11 +163,14 @@ export function useRodaData(session: any, notify?: (message: string) => void) {
     const meId = session.user.id;
     const unread = notifications.filter((n) => !n.seen);
     if (!unread.length) return;
-    for (const notif of unread) {
-      const newSeen = [...new Set([...(notif.seen_by || []), meId])];
-      await supabase.from('comments').update({ seen_by: newSeen }).eq('id', notif.id);
-    }
-    setNotifications(notifications.map((n) => ({ ...n, seen: true })));
+    const results = await Promise.all(
+      unread.map((notif) => {
+        const newSeen = [...new Set([...(notif.seen_by || []), meId])];
+        return supabase.from('comments').update({ seen_by: newSeen }).eq('id', notif.id);
+      })
+    );
+    if (!results.every((r) => ok(r, 'Impossible de marquer les notifications comme lues'))) return;
+    setNotifications((prev) => prev.map((n) => ({ ...n, seen: true })));
   };
 
   const loadPrerequisites = async () => {
@@ -225,12 +228,13 @@ export function useRodaData(session: any, notify?: (message: string) => void) {
     const name = prompt('Nom du nouvel espace (ex : Année 2026-2027)');
     if (!name || !name.trim()) return;
     const maxOrder = spaces.reduce((m, s) => Math.max(m, s.order_index || 0), -1);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('spaces')
       .insert({ name: name.trim(), created_by: session.user.id, order_index: maxOrder + 1 })
       .select().single();
+    if (!ok({ error }, "Impossible de créer l'espace")) return;
     if (data) {
-      setSpaces([...spaces, data]);
+      setSpaces((prev) => [...prev, data]);
       setCurrentSpaceId(data.id);
       setCurrentPageId(null);
     }
@@ -240,13 +244,17 @@ export function useRodaData(session: any, notify?: (message: string) => void) {
     const newName = prompt('Renommer cet espace', space.name);
     if (!newName || !newName.trim() || newName.trim() === space.name) return;
     const trimmed = newName.trim();
-    setSpaces(spaces.map((s) => (s.id === space.id ? { ...s, name: trimmed } : s)));
-    await supabase.from('spaces').update({ name: trimmed }).eq('id', space.id);
+    setSpaces((prev) => prev.map((s) => (s.id === space.id ? { ...s, name: trimmed } : s)));
+    const res = await supabase.from('spaces').update({ name: trimmed }).eq('id', space.id);
+    if (!ok(res, "Impossible de renommer l'espace")) {
+      setSpaces((prev) => prev.map((s) => (s.id === space.id ? { ...s, name: space.name } : s)));
+    }
   };
 
   const handleDeleteSpace = async (space: Space) => {
     if (!confirm(`Supprimer l'espace « ${space.name} » et tout son contenu ?`)) return;
-    await supabase.from('spaces').delete().eq('id', space.id);
+    const res = await supabase.from('spaces').delete().eq('id', space.id);
+    if (!ok(res, "Impossible de supprimer l'espace")) return;
     const remaining = spaces.filter((s) => s.id !== space.id);
     setSpaces(remaining);
     if (currentSpaceId === space.id) {
@@ -275,16 +283,17 @@ export function useRodaData(session: any, notify?: (message: string) => void) {
 
     setSpaces(reindexed);
 
-    for (const u of updates) {
-      await supabase.from('spaces').update({ order_index: u.order_index }).eq('id', u.id);
-    }
+    const results = await Promise.all(
+      updates.map((u) => supabase.from('spaces').update({ order_index: u.order_index }).eq('id', u.id))
+    );
+    if (!results.every((r) => ok(r, "Erreur lors du déplacement de l'espace"))) loadSpaces();
   };
 
   // --- Actions: Pages ---
   const handleCreatePage = async () => {
     if (!currentSpaceId) return;
     const maxOrder = pages.reduce((m, p) => Math.max(m, p.order_index || 0), -1);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('pages')
       .insert({
         space_id: currentSpaceId,
@@ -293,8 +302,9 @@ export function useRodaData(session: any, notify?: (message: string) => void) {
         order_index: maxOrder + 1,
       })
       .select().single();
+    if (!ok({ error }, 'Impossible de créer le cours')) return;
     if (data) {
-      setPages([...pages, data]);
+      setPages((prev) => [...prev, data]);
       setCurrentPageId(data.id);
     }
   };
@@ -302,7 +312,7 @@ export function useRodaData(session: any, notify?: (message: string) => void) {
   const handleDuplicatePage = async (page: Page) => {
     const newTitle = page.title + ' (copie)';
     const maxOrder = pages.reduce((m, p) => Math.max(m, p.order_index || 0), -1);
-    const { data: newPage } = await supabase
+    const { data: newPage, error: pageError } = await supabase
       .from('pages')
       .insert({
         space_id: page.space_id,
@@ -312,23 +322,25 @@ export function useRodaData(session: any, notify?: (message: string) => void) {
         locked: false,
       })
       .select().single();
-    if (!newPage) return;
+    if (!ok({ error: pageError }, 'Impossible de dupliquer le cours') || !newPage) return;
 
-    const { data: sourceBlocks } = await supabase
+    const { data: sourceBlocks, error: sourceError } = await supabase
       .from('blocks')
       .select('*')
       .eq('page_id', page.id)
       .order('order_index');
+    ok({ error: sourceError }, "Les blocs du cours n'ont pas pu être copiés");
     if (sourceBlocks && sourceBlocks.length > 0) {
-      await supabase.from('blocks').insert(
+      const copyRes = await supabase.from('blocks').insert(
         sourceBlocks.map((b) => ({
           page_id: newPage.id, type: b.type, content: b.content,
           parent_block_id: b.parent_block_id, order_index: b.order_index,
           created_by: session.user.id,
         }))
       );
+      ok(copyRes, "Les blocs du cours n'ont pas pu être copiés");
     }
-    setPages([...pages, newPage]);
+    setPages((prev) => [...prev, newPage]);
     setCurrentPageId(newPage.id);
   };
 
@@ -542,11 +554,19 @@ export function useRodaData(session: any, notify?: (message: string) => void) {
     if (exists) {
       next.delete(prereqId);
       setPagePrereqIds(next);
-      await supabase.from('page_prerequisites').delete().eq('page_id', currentPageId).eq('prerequisite_id', prereqId);
+      const res = await supabase.from('page_prerequisites').delete().eq('page_id', currentPageId).eq('prerequisite_id', prereqId);
+      if (!ok(res, 'Impossible de modifier le prérequis')) {
+        setPagePrereqIds(new Set(pagePrereqIds));
+        return;
+      }
     } else {
       next.add(prereqId);
       setPagePrereqIds(next);
-      await supabase.from('page_prerequisites').insert({ page_id: currentPageId, prerequisite_id: prereqId });
+      const res = await supabase.from('page_prerequisites').insert({ page_id: currentPageId, prerequisite_id: prereqId });
+      if (!ok(res, 'Impossible de modifier le prérequis')) {
+        setPagePrereqIds(new Set(pagePrereqIds));
+        return;
+      }
     }
     if (currentSpaceId) loadSpaceCoverage(currentSpaceId, pages);
   };
