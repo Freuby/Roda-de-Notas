@@ -38,6 +38,7 @@ export interface Page {
 
 export interface BlockContent {
   text?: string;
+  html?: string;
   url?: string;
   caption?: string;
   emoji?: string;
