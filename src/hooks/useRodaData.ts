@@ -2,7 +2,17 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Space, Page, Block, Profile, Song, Prerequisite, BlockType, NotificationItem } from '../types';
 
-export function useRodaData(session: any) {
+export function useRodaData(session: any, notify?: (message: string) => void) {
+  // Logs a Supabase error and tells the user; returns true when the call succeeded
+  const ok = (res: { error: any } | null | undefined, message = "Erreur d'enregistrement, réessayez") => {
+    if (res?.error) {
+      console.error(message, res.error);
+      notify?.(message);
+      return false;
+    }
+    return true;
+  };
+
   // Spaces & Pages
   const [spaces, setSpaces] = useState<Space[]>([]);
   const [currentSpaceId, setCurrentSpaceId] = useState<string | null>(null);
@@ -325,7 +335,8 @@ export function useRodaData(session: any) {
   const handleDeletePage = async (page: Page) => {
     if (page.locked) { alert('Ce cours est verrouillé.'); return; }
     if (!confirm(`Supprimer le cours « ${page.title} » ?`)) return;
-    await supabase.from('pages').delete().eq('id', page.id);
+    const res = await supabase.from('pages').delete().eq('id', page.id);
+    if (!ok(res, 'Impossible de supprimer le cours')) return;
     const remaining = pages.filter((p) => p.id !== page.id);
     setPages(remaining);
     if (currentPageId === page.id) setCurrentPageId(remaining[0]?.id || null);
@@ -334,8 +345,8 @@ export function useRodaData(session: any) {
   const handleUpdatePageTitle = async (title: string) => {
         if (!currentPageId || currentPageId === '__repertoire__') return;
         const now = new Date().toISOString();
-        setPages(pages.map((p) => (p.id === currentPageId ? { ...p, title, updated_at: now } : p)));
-        await supabase.from('pages').update({ title, updated_at: now }).eq('id', currentPageId);
+        setPages((prev) => prev.map((p) => (p.id === currentPageId ? { ...p, title, updated_at: now } : p)));
+        ok(await supabase.from('pages').update({ title, updated_at: now }).eq('id', currentPageId));
       };
 
   const handleToggleLock = async () => {
@@ -343,8 +354,11 @@ export function useRodaData(session: any) {
         if (!page) return;
         const nextLocked = !page.locked;
         const now = new Date().toISOString();
-        setPages(pages.map((p) => (p.id === page.id ? { ...p, locked: nextLocked, updated_at: now } : p)));
-        await supabase.from('pages').update({ locked: nextLocked, updated_at: now }).eq('id', page.id);
+        setPages((prev) => prev.map((p) => (p.id === page.id ? { ...p, locked: nextLocked, updated_at: now } : p)));
+        const res = await supabase.from('pages').update({ locked: nextLocked, updated_at: now }).eq('id', page.id);
+        if (!ok(res)) {
+          setPages((prev) => prev.map((p) => (p.id === page.id ? { ...p, locked: page.locked } : p)));
+        }
       };
 
   const handleReorderPage = async (draggedId: string, targetId: string, position: 'before' | 'after') => {
@@ -357,11 +371,17 @@ export function useRodaData(session: any) {
     filtered.splice(insertAt, 0, draggedPage);
     const updates: { id: string; order_index: number }[] = [];
     const next = filtered.map((p, i) => {
-      if (p.order_index !== i) { p.order_index = i; updates.push({ id: p.id, order_index: i }); }
-      return p;
+      if (p.order_index === i) return p;
+      updates.push({ id: p.id, order_index: i });
+      return { ...p, order_index: i };
     });
     setPages(next);
-    for (const u of updates) await supabase.from('pages').update({ order_index: u.order_index }).eq('id', u.id);
+    const results = await Promise.all(
+      updates.map((u) => supabase.from('pages').update({ order_index: u.order_index }).eq('id', u.id))
+    );
+    if (!results.every((r) => ok(r, 'Erreur lors du déplacement du cours')) && currentSpaceId) {
+      loadPages(currentSpaceId);
+    }
   };
 
   // --- Actions: Blocks ---
@@ -380,7 +400,7 @@ export function useRodaData(session: any) {
     if (type === 'callout') content = { text: '', emoji: '💡' };
     if (type === 'video') content = { url: '', caption: '' };
     if (type === 'song') content = {};
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('blocks')
       .insert({
         page_id: currentPageId, type, content,
@@ -389,6 +409,7 @@ export function useRodaData(session: any) {
         created_by: session.user.id,
       })
       .select().single();
+    if (!ok({ error }, "Impossible d'ajouter le bloc")) return;
     if (data) {
       if (afterBlock) {
         // Shift following siblings down so the new block sits right after its predecessor
@@ -401,9 +422,12 @@ export function useRodaData(session: any) {
           next.splice(idx + 1, 0, data);
           return next;
         });
-        for (const s of shifted) {
-          await supabase.from('blocks').update({ order_index: (s.order_index || 0) + 1 }).eq('id', s.id);
-        }
+        const results = await Promise.all(
+          shifted.map((s) =>
+            supabase.from('blocks').update({ order_index: (s.order_index || 0) + 1 }).eq('id', s.id)
+          )
+        );
+        results.forEach((r) => ok(r, "Erreur lors de l'ordonnancement des blocs"));
         setTimeout(() => {
           const el = document.querySelector<HTMLElement>(`[data-block-editable="${data.id}"]`);
           el?.focus();
@@ -419,13 +443,16 @@ export function useRodaData(session: any) {
   const handleUpdateBlockContent = async (block: Block, patch: any) => {
     const nextContent = { ...block.content, ...patch };
     const now = new Date().toISOString();
-    setBlocks(blocks.map((b) =>
-      b.id === block.id ? { ...b, content: nextContent, updated_at: now, updated_by: session.user.id } : b
+    setBlocks((prev) => prev.map((b) =>
+      b.id === block.id
+        ? { ...b, content: { ...b.content, ...patch }, updated_at: now, updated_by: session.user.id }
+        : b
     ));
-    await supabase
+    const res = await supabase
       .from('blocks')
       .update({ content: nextContent, updated_at: now, updated_by: session.user.id })
       .eq('id', block.id);
+    if (!ok(res) && currentPageId) loadBlocks(currentPageId);
   };
 
   const handleChangeBlockType = async (
@@ -437,13 +464,17 @@ export function useRodaData(session: any) {
     if (type === 'callout') newContent = { text: block.content?.text || '', emoji: '💡' };
     if (type === 'video') newContent = { url: block.content?.url || '', caption: '' };
     if (type === 'song') newContent = {};
-    setBlocks(blocks.map((b) => (b.id === block.id ? { ...b, type, content: newContent } : b)));
-    await supabase.from('blocks').update({ type, content: newContent }).eq('id', block.id);
+    setBlocks((prev) => prev.map((b) => (b.id === block.id ? { ...b, type, content: newContent } : b)));
+    const res = await supabase.from('blocks').update({ type, content: newContent }).eq('id', block.id);
+    if (!ok(res)) {
+      if (currentPageId) loadBlocks(currentPageId);
+      return;
+    }
     if (type === 'song' && onSongPickNeeded) onSongPickNeeded(block.id);
   };
 
   const handleDuplicateBlock = async (block: Block) => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('blocks')
       .insert({
         page_id: block.page_id, type: block.type, content: block.content,
@@ -452,7 +483,8 @@ export function useRodaData(session: any) {
         created_by: session.user.id,
       })
       .select().single();
-    if (data) setBlocks([...blocks, data]);
+    if (!ok({ error }, 'Impossible de dupliquer le bloc')) return;
+    if (data) setBlocks((prev) => [...prev, data]);
   };
 
   const handleMoveBlockToPage = async (block: Block, targetPageId: string) => {
@@ -463,17 +495,19 @@ export function useRodaData(session: any) {
       .order('order_index', { ascending: false })
       .limit(1);
     const maxOrder = targetBlocks && targetBlocks.length ? targetBlocks[0].order_index + 1 : 0;
-    await supabase
+    const res = await supabase
       .from('blocks')
       .update({ page_id: targetPageId, parent_block_id: null, order_index: maxOrder })
       .eq('id', block.id);
-    setBlocks(blocks.filter((b) => b.id !== block.id));
+    if (!ok(res, 'Impossible de déplacer le bloc')) return;
+    setBlocks((prev) => prev.filter((b) => b.id !== block.id));
   };
 
   const handleDeleteBlock = async (block: Block) => {
     if (!confirm('Supprimer ce bloc ?')) return;
-    await supabase.from('blocks').delete().eq('id', block.id);
-    setBlocks(blocks.filter((b) => b.id !== block.id && b.parent_block_id !== block.id));
+    const res = await supabase.from('blocks').delete().eq('id', block.id);
+    if (!ok(res, 'Impossible de supprimer le bloc')) return;
+    setBlocks((prev) => prev.filter((b) => b.id !== block.id && b.parent_block_id !== block.id));
   };
 
   const handleReorderBlock = async (draggedId: string, targetId: string, position: 'before' | 'after') => {
@@ -487,12 +521,18 @@ export function useRodaData(session: any) {
     filtered.splice(insertAt, 0, dragged);
     const updates: { id: string; order_index: number }[] = [];
     const next = filtered.map((b, i) => {
-      if (b.order_index !== i) { b.order_index = i; updates.push({ id: b.id, order_index: i }); }
-      return b;
+      if (b.order_index === i) return b;
+      updates.push({ id: b.id, order_index: i });
+      return { ...b, order_index: i };
     });
     const childBlocks = blocks.filter((b) => b.parent_block_id);
     setBlocks([...next, ...childBlocks]);
-    for (const u of updates) await supabase.from('blocks').update({ order_index: u.order_index }).eq('id', u.id);
+    const results = await Promise.all(
+      updates.map((u) => supabase.from('blocks').update({ order_index: u.order_index }).eq('id', u.id))
+    );
+    if (!results.every((r) => ok(r, 'Erreur lors du déplacement du bloc')) && currentPageId) {
+      loadBlocks(currentPageId);
+    }
   };
 
   const handleTogglePrerequisite = async (prereqId: string) => {
@@ -513,10 +553,15 @@ export function useRodaData(session: any) {
 
   const handleAddComment = async (blockId: string, text: string) => {
     if (!text.trim()) return;
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('comments')
       .insert({ block_id: blockId, user_id: session.user.id, content: text.trim() })
       .select().single();
+    if (error) {
+      console.error(error);
+      notify?.("Impossible d'ajouter le commentaire");
+      return;
+    }
     if (data) setCommentsMap((prev) => ({ ...prev, [blockId]: [...(prev[blockId] || []), data] }));
   };
 

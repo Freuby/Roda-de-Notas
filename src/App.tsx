@@ -32,7 +32,7 @@ export const App: React.FC = () => {
 
   // --- Hooks ---
   const { theme, toggleTheme } = useTheme();
-  const data = useRodaData(session);
+  const data = useRodaData(session, setToastMessage);
   const history = useBlockHistory();
 
   // --- Navigation helpers ---

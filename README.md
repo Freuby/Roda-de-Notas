@@ -4,10 +4,9 @@ Cahier de cours collaboratif pour profs de capoeira, connecté à Supabase.
 
 ## Structure
 
-- `index.html` – page d'entrée
-- `styles.css` – tous les styles
-- `app.js` – toute la logique (auth, espaces, pages, blocs, chants, commentaires)
-- `vercel.json` – config de déploiement statique
+- `index.html` – page d'entrée (Vite)
+- `src/` – application React + TypeScript (composants, hook de données `useRodaData`, client Supabase)
+- `vercel.json` – config de déploiement
 
 ## Déployer sur Vercel (sans GitHub)
 
@@ -32,7 +31,7 @@ Puis sur https://vercel.com/new, importez ce dépôt GitHub. Chaque futur `git p
 
 ## Configuration Supabase
 
-Les identifiants (URL + clé publique "anon") sont déjà présents en haut de `app.js`. Ce sont des clés publiques protégées par les règles RLS de Supabase — rien de secret à cacher côté serveur.
+Les identifiants (URL + clé publique "anon") sont définis dans `src/lib/supabase.ts`. Ce sont des clés publiques protégées par les règles RLS de Supabase — rien de secret à cacher côté serveur.
 
 ## Notes
 
