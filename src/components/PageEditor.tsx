@@ -27,7 +27,7 @@ interface PageEditorProps {
   onDuplicateBlock: (block: Block) => void;
   onMoveBlockToPage: (block: Block) => void;
   onDeleteBlock: (block: Block) => void;
-  onAddBlock: (type: BlockType, parentId?: string | null) => void;
+  onAddBlock: (type: BlockType, parentId?: string | null, afterBlockId?: string) => void;
   onToggleComment: (blockId: string) => void;
   onAddComment: (blockId: string, text: string) => void;
   onOpenEmojiPicker: (blockId: string) => void;
@@ -139,6 +139,13 @@ export const PageEditor: React.FC<PageEditorProps> = ({
               onOpenSongPicker={onOpenSongPicker}
               onToggleCollapse={onToggleCollapse}
               onAddChildBlock={(parentId) => onAddBlock('paragraph', parentId)}
+              onAddBlockAfter={(block) =>
+                onAddBlock(
+                  block.type === 'bullet' || block.type === 'numbered' ? block.type : 'paragraph',
+                  block.parent_block_id || null,
+                  block.id
+                )
+              }
               onReorderBlock={onReorderBlock}
             />
 

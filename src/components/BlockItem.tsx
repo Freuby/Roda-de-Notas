@@ -40,6 +40,7 @@ interface BlockItemProps {
   onOpenSongPicker: (blockId: string) => void;
   onToggleCollapse: (blockId: string) => void;
   onAddChildBlock: (parentBlockId: string) => void;
+  onAddBlockAfter?: (block: Block) => void;
   onReorderBlock?: (draggedId: string, targetId: string, position: 'before' | 'after') => void;
 }
 
@@ -95,6 +96,7 @@ export const BlockItem: React.FC<BlockItemProps> = ({
   onOpenSongPicker,
   onToggleCollapse,
   onAddChildBlock,
+  onAddBlockAfter,
   onReorderBlock,
 }) => {
   const [showTypeMenu, setShowTypeMenu] = useState(false);
@@ -161,11 +163,26 @@ export const BlockItem: React.FC<BlockItemProps> = ({
     document.execCommand(command, false, value);
   };
 
+  const handleEnterKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== 'Enter' || e.shiftKey || e.nativeEvent.isComposing || !onAddBlockAfter) return;
+    e.preventDefault();
+    const el = e.currentTarget;
+    onUpdateContent(
+      block,
+      isRich
+        ? { text: el.innerText, html: sanitizeHtml(el.innerHTML) }
+        : { text: el.innerText }
+    );
+    onAddBlockAfter(block);
+  };
+
   const renderContentEditable = (placeholder: string, className = '') =>
     isRich ? (
       <div
         contentEditable={!locked}
         suppressContentEditableWarning
+        data-block-editable={block.id}
+        onKeyDown={handleEnterKey}
         data-placeholder={placeholder}
         onBlur={(e) =>
           onUpdateContent(block, {
@@ -188,6 +205,8 @@ export const BlockItem: React.FC<BlockItemProps> = ({
       <div
         contentEditable={!locked}
         suppressContentEditableWarning
+        data-block-editable={block.id}
+        onKeyDown={handleEnterKey}
         data-placeholder={placeholder}
         onBlur={(e) => onUpdateContent(block, { text: e.currentTarget.innerText })}
         onClick={(e) => {
@@ -506,6 +525,7 @@ export const BlockItem: React.FC<BlockItemProps> = ({
                 onOpenSongPicker={onOpenSongPicker}
                 onToggleCollapse={onToggleCollapse}
                 onAddChildBlock={onAddChildBlock}
+                onAddBlockAfter={onAddBlockAfter}
                 onReorderBlock={onReorderBlock}
               />
             ))}

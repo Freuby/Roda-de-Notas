@@ -368,11 +368,14 @@ export function useRodaData(session: any) {
   const handleAddBlock = async (
     type: BlockType,
     parentBlockId: string | null = null,
-    onSongPickNeeded?: (blockId: string) => void
+    onSongPickNeeded?: (blockId: string) => void,
+    afterBlockId?: string
   ) => {
     if (!currentPageId || currentPageId === '__repertoire__') return;
     const siblings = blocks.filter((b) => (b.parent_block_id || null) === (parentBlockId || null));
     const maxOrder = siblings.reduce((m, b) => Math.max(m, b.order_index || 0), -1);
+    const afterBlock = afterBlockId ? blocks.find((b) => b.id === afterBlockId) : undefined;
+    const afterOrder = afterBlock ? afterBlock.order_index || 0 : maxOrder;
     let content: any = { text: '' };
     if (type === 'callout') content = { text: '', emoji: '💡' };
     if (type === 'video') content = { url: '', caption: '' };
@@ -382,12 +385,32 @@ export function useRodaData(session: any) {
       .insert({
         page_id: currentPageId, type, content,
         parent_block_id: parentBlockId,
-        order_index: maxOrder + 1,
+        order_index: afterOrder + 1,
         created_by: session.user.id,
       })
       .select().single();
     if (data) {
-      setBlocks([...blocks, data]);
+      if (afterBlock) {
+        // Shift following siblings down so the new block sits right after its predecessor
+        const shifted = siblings.filter((b) => b.id !== afterBlock.id && (b.order_index || 0) > afterOrder);
+        setBlocks((prev) => {
+          const next = prev.map((b) =>
+            shifted.some((s) => s.id === b.id) ? { ...b, order_index: (b.order_index || 0) + 1 } : b
+          );
+          const idx = next.findIndex((b) => b.id === afterBlock.id);
+          next.splice(idx + 1, 0, data);
+          return next;
+        });
+        for (const s of shifted) {
+          await supabase.from('blocks').update({ order_index: (s.order_index || 0) + 1 }).eq('id', s.id);
+        }
+        setTimeout(() => {
+          const el = document.querySelector<HTMLElement>(`[data-block-editable="${data.id}"]`);
+          el?.focus();
+        }, 50);
+      } else {
+        setBlocks((prev) => [...prev, data]);
+      }
       if (type === 'song' && onSongPickNeeded) onSongPickNeeded(data.id);
       if (type === 'toggle') setOpenToggles((prev) => new Set([...prev, data.id]));
     }

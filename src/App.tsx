@@ -311,10 +311,10 @@ export const App: React.FC = () => {
               onDuplicateBlock={async (b) => { await data.handleDuplicateBlock(b); setToastMessage('Bloc dupliqué ✓'); }}
               onMoveBlockToPage={(b) => setMovingBlock(b)}
               onDeleteBlock={data.handleDeleteBlock}
-              onAddBlock={(type, parentId) => {
+              onAddBlock={(type, parentId, afterBlockId) => {
                 data.handleAddBlock(type, parentId, (id) => {
                   if (type === 'song') setSongPickerBlockId(id);
-                });
+                }, afterBlockId);
               }}
               onToggleComment={(id) => data.setOpenCommentBlockId(data.openCommentBlockId === id ? null : id)}
               onAddComment={data.handleAddComment}
