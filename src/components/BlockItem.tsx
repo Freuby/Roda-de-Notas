@@ -4,6 +4,9 @@ import { SongBlock } from './SongBlock';
 import { VideoBlock } from './VideoBlock';
 import {
   MessageSquare,
+  Bold,
+  Underline,
+  Strikethrough,
   Smile,
   ArrowRightLeft,
   Copy,
@@ -15,6 +18,7 @@ import {
   Plus,
 } from 'lucide-react';
 import { fmtDate } from '../lib/utils';
+import { sanitizeHtml, escapeHtml } from '../lib/richText';
 
 interface BlockItemProps {
   block: Block;
@@ -150,23 +154,53 @@ export const BlockItem: React.FC<BlockItemProps> = ({
     }
   }, [showTypeMenu, showInfo]);
 
-  const renderContentEditable = (placeholder: string, className = '') => (
-    <div
-      contentEditable={!locked}
-      suppressContentEditableWarning
-      data-placeholder={placeholder}
-      onBlur={(e) => onUpdateContent(block, { text: e.currentTarget.innerText })}
-      onClick={(e) => {
-        e.stopPropagation();
-        onSelectBlock(block.id);
-      }}
-      className={`outline-none min-w-[60px] flex-1 text-ink cursor-text ${className} ${
-        !content.text && !locked ? 'before:content-[attr(data-placeholder)] before:text-muted' : ''
-      }`}
-    >
-      {content.text || ''}
-    </div>
-  );
+  const isRich = ['paragraph', 'bullet', 'numbered', 'callout', 'toggle'].includes(block.type);
+
+  const runFormat = (command: string, value?: string) => {
+    document.execCommand('styleWithCSS', false, 'true');
+    document.execCommand(command, false, value);
+  };
+
+  const renderContentEditable = (placeholder: string, className = '') =>
+    isRich ? (
+      <div
+        contentEditable={!locked}
+        suppressContentEditableWarning
+        data-placeholder={placeholder}
+        onBlur={(e) =>
+          onUpdateContent(block, {
+            text: e.currentTarget.innerText,
+            html: sanitizeHtml(e.currentTarget.innerHTML),
+          })
+        }
+        onClick={(e) => {
+          e.stopPropagation();
+          onSelectBlock(block.id);
+        }}
+        className={`outline-none min-w-[60px] flex-1 text-ink cursor-text ${className} ${
+          !content.text && !locked ? 'before:content-[attr(data-placeholder)] before:text-muted' : ''
+        }`}
+        dangerouslySetInnerHTML={{
+          __html: content.html ? sanitizeHtml(content.html) : escapeHtml(content.text || ''),
+        }}
+      />
+    ) : (
+      <div
+        contentEditable={!locked}
+        suppressContentEditableWarning
+        data-placeholder={placeholder}
+        onBlur={(e) => onUpdateContent(block, { text: e.currentTarget.innerText })}
+        onClick={(e) => {
+          e.stopPropagation();
+          onSelectBlock(block.id);
+        }}
+        className={`outline-none min-w-[60px] flex-1 text-ink cursor-text ${className} ${
+          !content.text && !locked ? 'before:content-[attr(data-placeholder)] before:text-muted' : ''
+        }`}
+      >
+        {content.text || ''}
+      </div>
+    );
 
   const renderBlockBody = () => {
     switch (block.type) {
@@ -242,21 +276,7 @@ export const BlockItem: React.FC<BlockItemProps> = ({
                     >
                       <ChevronRight className="w-4 h-4" />
                     </button>
-                    <div
-                      contentEditable={!locked}
-                      suppressContentEditableWarning
-                      data-placeholder="Titre dépliant…"
-                      onBlur={(e) => onUpdateContent(block, { text: e.currentTarget.innerText })}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onSelectBlock(block.id);
-                      }}
-                      className={`outline-none min-w-[60px] flex-1 text-ink cursor-text text-green font-semibold ${
-                        !content.text && !locked ? 'before:content-[attr(data-placeholder)] before:text-muted' : ''
-                      }`}
-                    >
-                      {content.text || ''}
-                    </div>
+                    {renderContentEditable('Titre dépliant…', 'text-green font-semibold')}
                   </div>
                 </div>
               );
@@ -334,6 +354,42 @@ export const BlockItem: React.FC<BlockItemProps> = ({
                                               </div>
                                             )}
                       
+                      {isRich && (
+                        <div className="flex items-center gap-0.5 pr-2 mr-1 border-r border-border">
+                          {[
+                            { cmd: 'bold', icon: Bold, title: 'Gras' },
+                            { cmd: 'underline', icon: Underline, title: 'Souligné' },
+                            { cmd: 'strikeThrough', icon: Strikethrough, title: 'Barré' },
+                          ].map(({ cmd, icon: Icon, title }) => (
+                            <button
+                              key={cmd}
+                              type="button"
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                runFormat(cmd);
+                              }}
+                              className="p-1 text-muted hover:text-ink hover:bg-bg rounded"
+                              title={title}
+                            >
+                              <Icon className="w-3.5 h-3.5" />
+                            </button>
+                          ))}
+                          {['#1a1a1a', '#C0392B', '#E67E22', '#D4A017', '#1A3C2F', '#2E6FD8', '#6B46C1'].map((c) => (
+                            <button
+                              key={c}
+                              type="button"
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                runFormat('foreColor', c);
+                              }}
+                              className="w-3.5 h-3.5 rounded-full border border-border ml-0.5"
+                              style={{ backgroundColor: c }}
+                              title="Couleur du texte"
+                            />
+                          ))}
+                        </div>
+                      )}
+
                       <button
                         onClick={(e) => {
                           e.stopPropagation();

@@ -211,7 +211,9 @@ export const App: React.FC = () => {
     const block = data.blocks.find((b) => b.id === emojiPickerBlockId);
     if (block) {
       const current = block.content?.text || '';
-      data.handleUpdateBlockContent(block, { text: current + emoji });
+      const patch: any = { text: current + emoji };
+      if (block.content?.html) patch.html = block.content.html + emoji;
+      data.handleUpdateBlockContent(block, patch);
     }
     setEmojiPickerBlockId(null);
   }, [emojiPickerBlockId, data]);
