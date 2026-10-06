@@ -39,6 +39,24 @@ export const App: React.FC = () => {
   const search = useSearch();
   const history = useBlockHistory();
 
+  // Wrapped update functions that record history before mutating
+  const updateBlockContentWithHistory = useCallback((block: Block, patch: any) => {
+    if (!history.isApplying()) {
+      history.recordChange(block, { content: { ...block.content, ...patch } });
+    }
+    data.handleUpdateBlockContent(block, patch);
+  }, [history, data]);
+
+  const changeBlockTypeWithHistory = useCallback((block: Block, type: BlockType) => {
+    if (!history.isApplying()) {
+      const previousContent = block.content ? { ...block.content } : {};
+      history.recordChange(block, { type, content: previousContent });
+    }
+    data.handleChangeBlockType(block, type, (id) => {
+      if (type === 'song') setSongPickerBlockId(id);
+    });
+  }, [history, data]);
+
   // --- Navigation helpers ---
   const navigateBlock = useCallback(
     (direction: 'up' | 'down' | 'left' | 'right') => {
@@ -60,35 +78,248 @@ export const App: React.FC = () => {
     [data.blocks, activeBlockId]
   );
 
-  const undoBlock = useCallback(() => {
-    const entry = history.undoBlock();
-    if (entry) {
-      data.setBlocks((prev: Block[]) =>
-        prev.map((b) => (b.id === entry.blockId ? { ...b, content: entry.previousContent } : b))
-      );
-      setToastMessage('Annulé');
+  const undoBlock = useCallback(async () => {
+    const entry = history.undo();
+    if (!entry) return;
+
+    const block = data.blocks.find((b) => b.id === entry.blockId);
+
+    // Case 1: Undoing a deletion → we need to restore the block
+    if (entry.action === 'delete' && entry.snapshot) {
+      const snap = entry.snapshot;
+      try {
+        const { data: restored } = await supabase
+          .from('blocks')
+          .insert({
+            id: snap.id,
+            page_id: snap.page_id,
+            parent_block_id: snap.parent_block_id,
+            order_index: snap.order_index,
+            type: snap.type,
+            content: snap.content,
+            created_by: (await supabase.auth.getUser()).data.user?.id,
+          })
+          .select()
+          .single();
+
+        if (restored) {
+          const newParentId = restored.id;
+          data.setBlocks((prev: Block[]) => [...prev, restored as Block]);
+
+          // Restore any children that were captured at deletion time
+          // @ts-ignore
+          const childSnaps: any[] = entry.childSnapshots || [];
+          if (childSnaps.length > 0) {
+            const childrenToInsert = childSnaps.map((c: any) => ({
+              page_id: c.page_id,
+              parent_block_id: newParentId,
+              order_index: c.order_index,
+              type: c.type,
+              content: c.content,
+              created_by: (await supabase.auth.getUser()).data.user?.id,
+            }));
+
+            const { data: restoredChildren } = await supabase
+              .from('blocks')
+              .insert(childrenToInsert)
+              .select();
+
+            if (restoredChildren) {
+              data.setBlocks((prev: Block[]) => [...prev, ...(restoredChildren as Block[])]);
+            }
+          }
+
+          setActiveBlockId(newParentId);
+          setToastMessage('Suppression annulée');
+
+          if (typeof (history as any).remapBlockId === 'function') {
+            (history as any).remapBlockId(entry.blockId, newParentId);
+          }
+        }
+      } catch (e) {
+        console.error(e);
+        setToastMessage('Impossible de restaurer le bloc');
+      }
+      return;
     }
+
+    // Case 2: Undoing a creation → delete the block + any children it may have acquired (without confirm)
+    if (entry.action === 'create') {
+      if (block) {
+        const children = data.blocks.filter((b) => b.parent_block_id === block.id);
+        if (children.length > 0) {
+          await Promise.all(children.map((c) => supabase.from('blocks').delete().eq('id', c.id)));
+        }
+        await supabase.from('blocks').delete().eq('id', block.id);
+        data.setBlocks((prev: Block[]) =>
+          prev.filter(
+            (b) => b.id !== block.id && b.parent_block_id !== block.id
+          )
+        );
+        setToastMessage('Création annulée');
+      }
+      return;
+    }
+
+    // Case 3: Normal edit or type change
+    if (!block) {
+      setToastMessage('Impossible d\'annuler');
+      return;
+    }
+
+    const prevState = entry.previous;
+
+    if (prevState.type !== block.type) {
+      data.handleChangeBlockType(block, prevState.type as BlockType);
+      setTimeout(() => {
+        const fresh = data.blocks.find((b) => b.id === entry.blockId);
+        if (fresh) {
+          data.handleUpdateBlockContent(fresh, { ...prevState.content });
+        }
+      }, 60);
+    } else {
+      data.handleUpdateBlockContent(block, { ...prevState.content });
+    }
+
+    setToastMessage('Annulé');
   }, [history, data]);
 
-  const redoBlock = useCallback(() => {
-    const entry = history.redoBlock();
-    if (entry) {
-      data.setBlocks((prev: Block[]) =>
-        prev.map((b) => (b.id === entry.blockId ? { ...b, content: entry.newContent } : b))
-      );
-      setToastMessage('Répété');
+  const redoBlock = useCallback(async () => {
+    const entry = history.redo();
+    if (!entry) return;
+
+    const block = data.blocks.find((b) => b.id === entry.blockId);
+
+    // Redoing a deletion (force delete, no confirm)
+    if (entry.action === 'delete') {
+      if (block) {
+        await supabase.from('blocks').delete().eq('id', block.id);
+        data.setBlocks((prev: Block[]) =>
+          prev.filter((b) => b.id !== block.id && b.parent_block_id !== block.id)
+        );
+        setToastMessage('Suppression réappliquée');
+      }
+      return;
     }
+
+    // Redoing a creation
+    if (entry.action === 'create' && entry.next) {
+      const originalPageId = data.blocks.find((b) => b.id === entry.blockId)?.page_id || data.currentPageId;
+      try {
+        const { data: created } = await supabase
+          .from('blocks')
+          .insert({
+            page_id: originalPageId,
+            type: entry.next.type,
+            content: entry.next.content,
+            created_by: (await supabase.auth.getUser()).data.user?.id,
+          })
+          .select()
+          .single();
+
+        if (created) {
+          data.setBlocks((prev: Block[]) => [...prev, created as Block]);
+          setActiveBlockId(created.id);
+          setToastMessage('Création réappliquée');
+
+          // Remap history so future undo/redo on this creation uses the new id
+          if (typeof (history as any).remapBlockId === 'function') {
+            (history as any).remapBlockId(entry.blockId, created.id);
+          }
+        }
+      } catch (e) {
+        console.error(e);
+        setToastMessage('Impossible de recréer le bloc');
+      }
+      return;
+    }
+
+    if (!block) {
+      setToastMessage('Impossible de répéter');
+      return;
+    }
+
+    const nextState = entry.next;
+
+    if (nextState.type !== block.type) {
+      data.handleChangeBlockType(block, nextState.type as BlockType);
+      setTimeout(() => {
+        const fresh = data.blocks.find((b) => b.id === entry.blockId);
+        if (fresh) {
+          data.handleUpdateBlockContent(fresh, { ...nextState.content });
+        }
+      }, 60);
+    } else {
+      data.handleUpdateBlockContent(block, { ...nextState.content });
+    }
+
+    setToastMessage('Répété');
   }, [history, data]);
 
-  const deleteActiveBlock = useCallback(() => {
+  const deleteActiveBlock = useCallback(async () => {
     const block = data.blocks.find((b) => b.id === activeBlockId);
-    if (block) {
-      history.saveToHistory('delete', block, block.content);
-      data.handleDeleteBlock(block);
-      setActiveBlockId(null);
-      setToastMessage('Bloc supprimé');
+    if (!block) return;
+
+    const children = data.blocks.filter((b) => b.parent_block_id === block.id);
+    const childSnapshots = children.map((c) => ({
+      id: c.id,
+      page_id: c.page_id,
+      parent_block_id: c.parent_block_id || null,
+      order_index: c.order_index,
+      type: c.type,
+      content: c.content ? { ...c.content } : {},
+    }));
+
+    history.recordDeletion(block, childSnapshots);
+
+    // Delete children from DB first
+    if (children.length > 0) {
+      await Promise.all(children.map((c) => supabase.from('blocks').delete().eq('id', c.id)));
     }
+
+    // Delete parent from DB
+    await supabase.from('blocks').delete().eq('id', block.id);
+
+    // Update local state
+    data.setBlocks((prev: Block[]) =>
+      prev.filter((b) => b.id !== block.id && b.parent_block_id !== block.id)
+    );
+
+    setActiveBlockId(null);
+    setToastMessage('Bloc supprimé');
   }, [data, activeBlockId, history]);
+
+  // Wrapped delete that records history (used by trash icon on blocks)
+  // Captures direct children (for toggles etc.) so undo can restore the whole subtree.
+  // We bypass the confirm in handleDeleteBlock because the user already clicked delete.
+  const deleteBlockWithHistory = useCallback(async (block: Block) => {
+    const children = data.blocks.filter((b) => b.parent_block_id === block.id);
+    const childSnapshots = children.map((c) => ({
+      id: c.id,
+      page_id: c.page_id,
+      parent_block_id: c.parent_block_id || null,
+      order_index: c.order_index,
+      type: c.type,
+      content: c.content ? { ...c.content } : {},
+    }));
+
+    history.recordDeletion(block, childSnapshots);
+
+    // Delete children directly (no confirm)
+    if (children.length > 0) {
+      await Promise.all(children.map((c) => supabase.from('blocks').delete().eq('id', c.id)));
+    }
+
+    // Delete the parent directly (bypass confirm in handleDeleteBlock)
+    await supabase.from('blocks').delete().eq('id', block.id);
+    data.setBlocks((prev: Block[]) =>
+      prev.filter((b) => b.id !== block.id && b.parent_block_id !== block.id)
+    );
+  }, [history, data]);
+
+  // History state (useful for future UI indicators)
+  const canUndo = history.canUndo;
+  const canRedo = history.canRedo;
 
   // --- Keyboard shortcuts ---
   useKeyboardShortcuts({
@@ -258,18 +489,22 @@ export const App: React.FC = () => {
       if (!songPickerBlockId) return;
       const block = data.blocks.find((b) => b.id === songPickerBlockId);
       if (block) {
-        data.handleUpdateBlockContent(block, {
+        const patch = {
           song_id: song.id,
           title: song.title,
           category: song.category,
           mnemonic: song.mnemonic,
           lyrics: song.lyrics,
           mediaLink: song.mediaLink,
-        });
+        };
+        if (!history.isApplying()) {
+          history.recordChange(block, { content: { ...block.content, ...patch } });
+        }
+        data.handleUpdateBlockContent(block, patch);
       }
       setSongPickerBlockId(null);
       setToastMessage('Chant sélectionné ✓');
-    }, [songPickerBlockId, data]);
+    }, [songPickerBlockId, data, history]);
   
     const handleOpenSearch = useCallback(() => {
       setShowGlobalSearch(true);
@@ -284,10 +519,14 @@ export const App: React.FC = () => {
       const current = block.content?.text || '';
       const patch: any = { text: current + emoji };
       if (block.content?.html) patch.html = block.content.html + emoji;
+      // Record before applying
+      if (!history.isApplying()) {
+        history.recordChange(block, { content: { ...block.content, ...patch } });
+      }
       data.handleUpdateBlockContent(block, patch);
     }
     setEmojiPickerBlockId(null);
-  }, [emojiPickerBlockId, data]);
+  }, [emojiPickerBlockId, data, history]);
 
   // --- Toast auto-clear ---
   useEffect(() => {
@@ -303,6 +542,13 @@ export const App: React.FC = () => {
     const { data: listener } = supabase.auth.onAuthStateChange((_e, ns) => { setSession(ns); setLoading(false); });
     return () => listener.subscription.unsubscribe();
   }, []);
+
+  // Clear undo/redo history when switching pages (avoids confusing cross-page undos)
+  useEffect(() => {
+    if (data.currentPageId && typeof history.clear === 'function') {
+      history.clear();
+    }
+  }, [data.currentPageId]);
 
   // --- Loading / Auth ---
   if (loading) return <div className="flex h-screen items-center justify-center bg-bg text-muted font-display text-sm">Chargement de la roda…</div>;
@@ -373,18 +619,27 @@ export const App: React.FC = () => {
               onToggleLock={data.handleToggleLock}
               onTogglePrerequisite={data.handleTogglePrerequisite}
               onSelectBlock={setActiveBlockId}
-              onUpdateBlockContent={data.handleUpdateBlockContent}
+              onUpdateBlockContent={updateBlockContentWithHistory}
               onChangeBlockType={(b, type) => {
-                data.handleChangeBlockType(b, type, (id) => {
-                  if (type === 'song') setSongPickerBlockId(id);
-                });
+                changeBlockTypeWithHistory(b, type);
               }}
               onDuplicateBlock={async (b) => { await data.handleDuplicateBlock(b); setToastMessage('Bloc dupliqué ✓'); }}
               onMoveBlockToPage={(b) => setMovingBlock(b)}
-              onDeleteBlock={data.handleDeleteBlock}
+              onDeleteBlock={deleteBlockWithHistory}
               onAddBlock={(type, parentId, afterBlockId) => {
                 data.handleAddBlock(type, parentId, (id) => {
                   if (type === 'song') setSongPickerBlockId(id);
+                  // Record creation for undo (after the block is in state)
+                  setTimeout(() => {
+                    const newBlock = data.blocks.find((b) => b.id === id);
+                    if (newBlock) {
+                      if (history.recordCreation) {
+                        history.recordCreation(newBlock);
+                      } else {
+                        history.recordChange(newBlock, undefined, 'create');
+                      }
+                    }
+                  }, 30);
                 }, afterBlockId);
               }}
               onToggleComment={(id) => data.setOpenCommentBlockId(data.openCommentBlockId === id ? null : id)}
