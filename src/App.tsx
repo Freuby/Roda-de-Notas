@@ -88,6 +88,10 @@ export const App: React.FC = () => {
     if (entry.action === 'delete' && entry.snapshot) {
       const snap = entry.snapshot;
       try {
+        // Fetch user once (cannot await inside object literals passed to .map)
+        const { data: userData } = await supabase.auth.getUser();
+        const userId = userData?.user?.id;
+
         const { data: restored } = await supabase
           .from('blocks')
           .insert({
@@ -97,7 +101,7 @@ export const App: React.FC = () => {
             order_index: snap.order_index,
             type: snap.type,
             content: snap.content,
-            created_by: (await supabase.auth.getUser()).data.user?.id,
+            created_by: userId,
           })
           .select()
           .single();
@@ -116,7 +120,7 @@ export const App: React.FC = () => {
               order_index: c.order_index,
               type: c.type,
               content: c.content,
-              created_by: (await supabase.auth.getUser()).data.user?.id,
+              created_by: userId,
             }));
 
             const { data: restoredChildren } = await supabase
@@ -206,13 +210,16 @@ export const App: React.FC = () => {
     if (entry.action === 'create' && entry.next) {
       const originalPageId = data.blocks.find((b) => b.id === entry.blockId)?.page_id || data.currentPageId;
       try {
+        const { data: userData3 } = await supabase.auth.getUser();
+        const userId3 = userData3?.user?.id;
+
         const { data: created } = await supabase
           .from('blocks')
           .insert({
             page_id: originalPageId,
             type: entry.next.type,
             content: entry.next.content,
-            created_by: (await supabase.auth.getUser()).data.user?.id,
+            created_by: userId3,
           })
           .select()
           .single();
