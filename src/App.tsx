@@ -14,7 +14,9 @@ import { useRodaData } from './hooks/useRodaData';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useBlockHistory } from './hooks/useBlockHistory';
 import { useTheme } from './hooks/useTheme';
+import { useSearch, SearchResult } from './hooks/useSearch';
 import { MobileTopbar } from './components/MobileTopbar';
+import { GlobalSearchModal } from './components/GlobalSearchModal';
 import { Block, Space, NotificationItem, Song, BlockType } from './types';
 
 export const App: React.FC = () => {
@@ -28,11 +30,13 @@ export const App: React.FC = () => {
 
   // --- Picker states ---
     const [songPickerBlockId, setSongPickerBlockId] = useState<string | null>(null);
-  const [emojiPickerBlockId, setEmojiPickerBlockId] = useState<string | null>(null);
+    const [emojiPickerBlockId, setEmojiPickerBlockId] = useState<string | null>(null);
+    const [showGlobalSearch, setShowGlobalSearch] = useState(false);
 
   // --- Hooks ---
   const { theme, toggleTheme } = useTheme();
   const data = useRodaData(session, setToastMessage);
+  const search = useSearch();
   const history = useBlockHistory();
 
   // --- Navigation helpers ---
@@ -98,6 +102,10 @@ export const App: React.FC = () => {
     undoBlock,
     redoBlock,
     deleteActiveBlock,
+    openGlobalSearch: () => {
+      setShowGlobalSearch(true);
+      search.setQuery('');
+    },
   });
 
   // --- Notification handler ---
@@ -115,6 +123,68 @@ export const App: React.FC = () => {
       }
     }
   }, [data]);
+
+  // --- Global search selection ---
+  const handleSearchSelect = useCallback((result: SearchResult) => {
+    const sel = search.selectResult(result);
+    if (!sel) return;
+    setShowGlobalSearch(false);
+    search.setQuery('');
+
+    if (data.currentSpaceId !== sel.spaceId) {
+      data.setCurrentSpaceId(sel.spaceId);
+    }
+
+    if (sel.action === 'selectSpace') {
+      data.setCurrentPageId(null);
+      return;
+    }
+    if (sel.action === 'selectPage' && sel.pageId) {
+      data.setCurrentPageId(sel.pageId);
+      return;
+    }
+    if (sel.action === 'selectBlock' && sel.pageId && sel.blockId) {
+      data.setCurrentPageId(sel.pageId);
+
+      const targetBlockId = sel.blockId;
+
+      // Open any parent toggles so the block is visible
+      const openToggleAncestors = () => {
+        const ancestors: string[] = [];
+        let cur = data.blocks.find((b) => b.id === targetBlockId);
+        while (cur?.parent_block_id) {
+          ancestors.push(cur.parent_block_id);
+          cur = data.blocks.find((b) => b.id === cur!.parent_block_id);
+        }
+        if (ancestors.length) {
+          data.setOpenToggles((prev) => {
+            const next = new Set(prev);
+            ancestors.forEach((id) => next.add(id));
+            return next;
+          });
+        }
+      };
+
+      // Focus + highlight the block + open toggles
+      const tryFocusBlock = (attempts = 0) => {
+        const el = document.querySelector<HTMLElement>(`[data-block-editable="${targetBlockId}"]`);
+        if (el) {
+          setActiveBlockId(targetBlockId);
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          el.classList.add('search-highlight');
+          setTimeout(() => el.classList.remove('search-highlight'), 2200);
+          openToggleAncestors();
+        } else if (attempts < 10) {
+          setTimeout(() => tryFocusBlock(attempts + 1), 200);
+        } else {
+          // Last attempt: still try to open toggles if we have the data
+          openToggleAncestors();
+        }
+      };
+
+      setTimeout(() => tryFocusBlock(0), 300);
+    }
+  }, [search, data]);
 
   // --- Archive / Import ---
   const handleArchiveSpace = useCallback(async (space: Space) => {
@@ -202,8 +272,9 @@ export const App: React.FC = () => {
     }, [songPickerBlockId, data]);
   
     const handleOpenSearch = useCallback(() => {
-      setToastMessage('Recherche globale (à implémenter)');
-    }, []);
+      setShowGlobalSearch(true);
+      search.setQuery('');
+    }, [search]);
 
   // --- Emoji picker handler ---
   const handleEmojiSelect = useCallback((emoji: string) => {
@@ -365,6 +436,21 @@ export const App: React.FC = () => {
         <EmojiPickerModal
           onSelect={handleEmojiSelect}
           onClose={() => setEmojiPickerBlockId(null)}
+        />
+      )}
+
+      {/* Global Search Modal */}
+      {showGlobalSearch && (
+        <GlobalSearchModal
+          query={search.query}
+          setQuery={search.setQuery}
+          results={search.results}
+          busy={search.busy}
+          onSelect={handleSearchSelect}
+          onClose={() => {
+            setShowGlobalSearch(false);
+            search.setQuery('');
+          }}
         />
       )}
 

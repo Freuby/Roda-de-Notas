@@ -11,6 +11,7 @@ interface KeyboardShortcutsOptions {
   undoBlock: () => void;
   redoBlock: () => void;
   deleteActiveBlock: () => void;
+  openGlobalSearch?: () => void;
 }
 
 export function useKeyboardShortcuts({
@@ -24,6 +25,7 @@ export function useKeyboardShortcuts({
   undoBlock,
   redoBlock,
   deleteActiveBlock,
+  openGlobalSearch,
 }: KeyboardShortcutsOptions) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -32,6 +34,13 @@ export function useKeyboardShortcuts({
       // Escape — deselect block
       if (e.key === 'Escape') {
         setActiveBlockId(null);
+        return;
+      }
+
+      // Cmd/Ctrl + K — open global search
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        openGlobalSearch?.();
         return;
       }
 
@@ -87,5 +96,5 @@ export function useKeyboardShortcuts({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [session, activeBlockId, blockHistory, historyIndex]);
+  }, [session, activeBlockId, blockHistory, historyIndex, openGlobalSearch]);
 }
