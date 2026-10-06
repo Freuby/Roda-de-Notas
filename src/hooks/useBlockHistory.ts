@@ -219,5 +219,3 @@ export function useBlockHistory() {
     isApplying: () => isApplyingRef.current,
   };
 }
-
-export type { HistoryEntry, HistoryState, BlockSnapshot };

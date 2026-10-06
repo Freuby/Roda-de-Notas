@@ -16,9 +16,6 @@ export type SearchAction =
   | { action: 'selectSpace'; spaceId: string }
   | { action: 'selectPage'; spaceId: string; pageId?: string }
   | { action: 'selectBlock'; spaceId: string; pageId?: string; blockId?: string };
-export type { SearchResult };
-export type { SearchResult };
-
 export function useSearch() {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -153,5 +150,3 @@ export function useSearch() {
     selectResult,
   };
 }
-
-export type { SearchResult, SearchAction };
