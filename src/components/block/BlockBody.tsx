@@ -41,7 +41,7 @@ export const BlockBody: React.FC<BlockBodyProps> = ({
   switch (block.type) {
     case 'heading':
       return (
-        <div className="border-l-4 border-terracotta pl-3 py-1 font-display font-bold text-2xl text-ink">
+        <div className="border-l-4 border-terracotta pl-3 py-1 font-display font-bold text-2xl text-ink bg-[var(--violet-extra-soft)] rounded-r-lg">
           {editable('Titre principal…')}
         </div>
       );
