@@ -67,26 +67,29 @@ export const BlockActionBar: React.FC<BlockActionBarProps> = ({
   const createdByName = profileMap[block.created_by] || 'Inconnu';
   const updatedByName = block.updated_by ? profileMap[block.updated_by] || 'Inconnu' : null;
 
-  const computeMenuPos = (e: React.MouseEvent, menuHeight: number) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    let y = rect.bottom + 4;
-    if (y + menuHeight > window.innerHeight) y = rect.top - menuHeight - 4;
-    return { x: rect.left, y };
-  };
-
-  const handleTypeMenuClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setTypeMenuPos(computeMenuPos(e, 200));
-    setShowTypeMenu(!showTypeMenu);
-    setShowInfo(false);
-  };
-
-  const handleInfoClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setInfoMenuPos(computeMenuPos(e, 100));
-    setShowInfo(!showInfo);
-    setShowTypeMenu(false);
-  };
+  const computeMenuPos = (e: React.MouseEvent, menuHeight: number, menuWidth: number) => {
+      const rect = e.currentTarget.getBoundingClientRect();
+      let y = rect.bottom + 4;
+      if (y + menuHeight > window.innerHeight) y = rect.top - menuHeight - 4;
+      let x = rect.left;
+      if (x + menuWidth > window.innerWidth) x = window.innerWidth - menuWidth - 4;
+      if (x < 0) x = 4;
+      return { x, y };
+    };
+  
+    const handleTypeMenuClick = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      setTypeMenuPos(computeMenuPos(e, 200, 192));
+      setShowTypeMenu(!showTypeMenu);
+      setShowInfo(false);
+    };
+  
+    const handleInfoClick = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      setInfoMenuPos(computeMenuPos(e, 100, 208));
+      setShowInfo(!showInfo);
+      setShowTypeMenu(false);
+    };
 
   useEffect(() => {
     if (!showTypeMenu && !showInfo) return;
