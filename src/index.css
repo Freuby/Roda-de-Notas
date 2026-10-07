@@ -149,8 +149,8 @@ input, textarea {
 }
 
 @layer utilities {
-  /* Very light violet background with 95% opacity, respects light/dark theme */
+  /* Very light violet background (same as H1), respects light/dark theme */
   .bg-violet-blur {
-    background-color: rgba(var(--violet-extra-soft), 0.95);
+    background-color: var(--violet-extra-soft);
   }
 }
