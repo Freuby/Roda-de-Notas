@@ -78,7 +78,7 @@ export const PageEditor: React.FC<PageEditorProps> = ({
   return (
     <div className="space-y-4">
       {/* Fixed Header - Page Title & Info (sticky top like nav bar) */}
-      <div className="sticky top-0 z-10 bg-[var(--violet-extra-soft)]/95 backdrop-blur-sm border-b border-border shadow-sm">
+      <div className="sticky top-0 z-10 bg-violet-blur backdrop-blur-sm border-b border-border shadow-sm">
         <div className="flex items-center justify-between gap-4 py-3">
           <input
             type="text"

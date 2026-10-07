@@ -147,3 +147,10 @@ input, textarea {
 .block-animated.is-hovered .block-content-padded {
   padding-top: 0.25rem;
 }
+
+@layer utilities {
+  /* Very light violet background with 95% opacity, respects light/dark theme */
+  .bg-violet-blur {
+    background-color: rgba(var(--violet-extra-soft), 0.95);
+  }
+}
