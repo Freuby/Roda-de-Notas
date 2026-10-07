@@ -213,7 +213,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       )}
 
       <aside
-        className={`fixed md:static inset-y-0 left-0 z-30 w-72 bg-[#F9F9F9] border-r border-border flex flex-col transition-transform duration-200 ${
+        className={`fixed md:static inset-y-0 left-0 z-30 w-72 bg-[var(--sidebar-bg)] border-r border-border flex flex-col transition-transform duration-200 ${
           isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
       >
