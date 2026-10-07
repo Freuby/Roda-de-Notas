@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   MessageSquare,
   Smile,
@@ -67,29 +67,66 @@ export const BlockActionBar: React.FC<BlockActionBarProps> = ({
   const createdByName = profileMap[block.created_by] || 'Inconnu';
   const updatedByName = block.updated_by ? profileMap[block.updated_by] || 'Inconnu' : null;
 
-  const computeMenuPos = (e: React.MouseEvent, menuHeight: number, menuWidth: number) => {
-      const rect = e.currentTarget.getBoundingClientRect();
-      let y = rect.bottom + 4;
-      if (y + menuHeight > window.innerHeight) y = rect.top - menuHeight - 4;
-      let x = rect.left;
-      if (x + menuWidth > window.innerWidth) x = window.innerWidth - menuWidth - 4;
-      if (x < 0) x = 4;
-      return { x, y };
-    };
-  
-    const handleTypeMenuClick = (e: React.MouseEvent) => {
-      e.stopPropagation();
-      setTypeMenuPos(computeMenuPos(e, 200, 192));
-      setShowTypeMenu(!showTypeMenu);
+  const typeMenuRef = useRef<HTMLDivElement>(null);
+  const infoMenuRef = useRef<HTMLDivElement>(null);
+  const typeAnchor = useRef<DOMRect | null>(null);
+  const infoAnchor = useRef<DOMRect | null>(null);
+
+  // Place menu below the anchor (or above if no room), clamped inside the viewport
+  const placeMenu = (anchor: DOMRect, menu: HTMLElement) => {
+    const margin = 8;
+    const { width, height } = menu.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    let y = anchor.bottom + 4;
+    if (y + height > vh - margin) {
+      const above = anchor.top - height - 4;
+      y = above >= margin ? above : Math.max(margin, vh - height - margin);
+    }
+    const x = Math.min(Math.max(margin, anchor.left), Math.max(margin, vw - width - margin));
+    return { x, y };
+  };
+
+  useLayoutEffect(() => {
+    if (showTypeMenu && typeAnchor.current && typeMenuRef.current) {
+      setTypeMenuPos(placeMenu(typeAnchor.current, typeMenuRef.current));
+    }
+  }, [showTypeMenu]);
+
+  useLayoutEffect(() => {
+    if (showInfo && infoAnchor.current && infoMenuRef.current) {
+      setInfoMenuPos(placeMenu(infoAnchor.current, infoMenuRef.current));
+    }
+  }, [showInfo]);
+
+  const handleTypeMenuClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    typeAnchor.current = e.currentTarget.getBoundingClientRect();
+    setShowTypeMenu(!showTypeMenu);
+    setShowInfo(false);
+  };
+
+  const handleInfoClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    infoAnchor.current = e.currentTarget.getBoundingClientRect();
+    setShowInfo(!showInfo);
+    setShowTypeMenu(false);
+  };
+
+  useEffect(() => {
+    if (!showTypeMenu && !showInfo) return;
+    const close = (e: Event) => {
+      if (e.target instanceof HTMLElement && e.target.closest('[data-block-menu]')) return;
+      setShowTypeMenu(false);
       setShowInfo(false);
     };
-  
-    const handleInfoClick = (e: React.MouseEvent) => {
-      e.stopPropagation();
-      setInfoMenuPos(computeMenuPos(e, 100, 208));
-      setShowInfo(!showInfo);
-      setShowTypeMenu(false);
+    window.addEventListener('resize', close);
+    window.addEventListener('scroll', close, true);
+    return () => {
+      window.removeEventListener('resize', close);
+      window.removeEventListener('scroll', close, true);
     };
+  }, [showTypeMenu, showInfo]);
 
   useEffect(() => {
     if (!showTypeMenu && !showInfo) return;
@@ -184,8 +221,9 @@ export const BlockActionBar: React.FC<BlockActionBarProps> = ({
       {showTypeMenu && (
         <Portal>
           <div
+            ref={typeMenuRef}
             data-block-menu
-            className="bg-surface border border-border rounded-xl shadow-xl p-2 w-48"
+            className="bg-surface border border-border rounded-xl shadow-xl p-2 w-48 max-h-[calc(100vh-16px)] overflow-y-auto"
             style={{ left: typeMenuPos.x, top: typeMenuPos.y, position: 'fixed' }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -213,6 +251,7 @@ export const BlockActionBar: React.FC<BlockActionBarProps> = ({
       {showInfo && (
         <Portal>
           <div
+            ref={infoMenuRef}
             data-block-menu
             className="bg-ink text-white text-[11px] rounded-lg shadow-xl p-2 w-52"
             style={{ left: infoMenuPos.x, top: infoMenuPos.y, position: 'fixed' }}
