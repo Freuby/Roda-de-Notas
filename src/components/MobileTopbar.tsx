@@ -15,7 +15,7 @@ export const MobileTopbar: React.FC<MobileTopbarProps> = ({
   onToggleTheme,
 }) => {
   return (
-    <div className="md:hidden fixed top-0 left-0 right-0 h-14 bg-[#1A0B2E] border-b border-[#2E1B4E] flex items-center justify-between px-4 z-20">
+    <div className="md:hidden fixed top-0 left-0 right-0 h-14 bg-[#2D1457] border-b border-[#4C2A85] flex items-center justify-between px-4 z-20">
       <button onClick={onToggleSidebar} className="p-2 text-white">
         <Menu className="w-5 h-5" />
       </button>
