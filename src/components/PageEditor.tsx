@@ -78,7 +78,7 @@ export const PageEditor: React.FC<PageEditorProps> = ({
   return (
     <div>
       {/* Fixed Header - full window width, content aligned with the page */}
-      <div className="sticky top-0 z-10 bg-violet-blur border-b border-border shadow-sm px-6 md:px-12">
+      <div className="sticky top-0 z-10 bg-violet-blur border-b border-white/40 px-6 md:px-12">
         <div className="max-w-3xl mx-auto">
         <div className="flex items-center justify-between gap-4 py-3">
           <input
