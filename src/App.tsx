@@ -604,11 +604,22 @@ export const App: React.FC = () => {
         onToggleTheme={toggleTheme}
       />
 
-      <main className="flex-1 overflow-y-auto pt-14 md:pt-0 p-6 md:p-12">
-        <div className="max-w-3xl mx-auto pb-24">
-          {data.currentPageId === '__repertoire__' ? (
-            <RepertoireView spaceName={activeSpace?.name || ''} pages={data.pages} />
-          ) : activePage ? (
+      <main className="flex-1 overflow-y-auto pt-14 md:pt-0">
+        {data.currentPageId === '__repertoire__' || !activePage ? (
+          <div className="p-6 md:p-12">
+            <div className="max-w-3xl mx-auto pb-24">
+              {data.currentPageId === '__repertoire__' ? (
+                <RepertoireView spaceName={activeSpace?.name || ''} pages={data.pages} />
+              ) : (
+                <EmptyState
+                  hasSpace={Boolean(data.currentSpaceId)}
+                  onCreatePage={data.handleCreatePage}
+                  onCreateSpace={data.handleCreateSpace}
+                />
+              )}
+            </div>
+          </div>
+        ) : (
             <PageEditor
               page={activePage}
               spaceName={activeSpace?.name || ''}
@@ -660,14 +671,7 @@ export const App: React.FC = () => {
               }}
               onReorderBlock={data.handleReorderBlock}
             />
-          ) : (
-            <EmptyState
-              hasSpace={Boolean(data.currentSpaceId)}
-              onCreatePage={data.handleCreatePage}
-              onCreateSpace={data.handleCreateSpace}
-            />
-          )}
-        </div>
+        )}
       </main>
 
       {/* Move Block Modal */}

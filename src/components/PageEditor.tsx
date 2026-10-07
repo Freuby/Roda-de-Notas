@@ -76,9 +76,10 @@ export const PageEditor: React.FC<PageEditorProps> = ({
   };
 
   return (
-    <div className="space-y-4">
-      {/* Fixed Header - Page Title & Info (sticky top like nav bar) */}
-      <div className="sticky top-0 z-10 bg-violet-blur px-4 rounded-b-xl border-b border-border shadow-sm">
+    <div>
+      {/* Fixed Header - full window width, content aligned with the page */}
+      <div className="sticky top-0 z-10 bg-violet-blur border-b border-border shadow-sm px-6 md:px-12">
+        <div className="max-w-3xl mx-auto">
         <div className="flex items-center justify-between gap-4 py-3">
           <input
             type="text"
@@ -104,8 +105,11 @@ export const PageEditor: React.FC<PageEditorProps> = ({
         <p className="text-xs text-muted pb-3">
                   Modifié par <span className="font-semibold text-green">{profileMap[page.created_by!] || 'Inconnu'}</span> le {fmtDate(page.updated_at || page.created_at)} · espace « {spaceName} »
                 </p>
+        </div>
       </div>
 
+      <div className="px-6 md:px-12 pt-4 md:pt-6">
+      <div className="max-w-3xl mx-auto pb-24 space-y-4">
       {/* Prerequisites Bar */}
       <PrerequisitesBar
         prerequisites={prerequisites}
@@ -205,6 +209,8 @@ export const PageEditor: React.FC<PageEditorProps> = ({
           </button>
         </div>
       )}
+      </div>
+      </div>
     </div>
   );
 };
