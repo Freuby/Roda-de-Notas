@@ -45,6 +45,9 @@ interface BlockActionBarProps {
 
 const iconBtn = 'p-1 text-muted hover:text-ink hover:bg-bg rounded';
 
+// On mobile, reduce icon size and tighten spacing
+const iconBtnMobile = 'p-0.5 text-xs hover:text-ink hover:bg-bg rounded';
+
 export const BlockActionBar: React.FC<BlockActionBarProps> = ({
   block,
   commentsCount,
@@ -173,14 +176,14 @@ export const BlockActionBar: React.FC<BlockActionBarProps> = ({
           {isRichType(block.type) && <FormatToolbar />}
 
           <button
-            onClick={stop(() => onToggleComment(block.id))}
-            className={`p-1 rounded text-xs flex items-center gap-1 ${
-              commentsCount > 0
-                ? 'text-terracotta bg-terracotta-soft font-semibold'
-                : 'text-muted hover:text-ink hover:bg-bg'
-            }`}
-            title="Commentaires"
-          >
+                      onClick={stop(() => onToggleComment(block.id))}
+                      className={`p-1 rounded text-xs flex items-center gap-1 ${
+                        commentsCount > 0
+                          ? 'text-terracotta bg-terracotta-soft font-semibold'
+                          : 'text-muted hover:text-ink hover:bg-bg'
+                      }`}
+                      title="Commentaires"
+                    >
             <MessageSquare className="w-3.5 h-3.5" />
             {commentsCount > 0 && <span>{commentsCount}</span>}
           </button>
@@ -196,23 +199,23 @@ export const BlockActionBar: React.FC<BlockActionBarProps> = ({
 
           <button
             onClick={stop(() => onOpenEmojiPicker(block.id))}
-            className={iconBtn}
+            className="p-1 text-muted hover:text-ink hover:bg-bg rounded cursor-pointer"
             title="Insérer un émoji"
           >
             <Smile className="w-3.5 h-3.5" />
           </button>
 
-          <button onClick={handleTypeMenuClick} data-block-menu className={iconBtn} title="Changer de type">
+          <button onClick={handleTypeMenuClick} data-block-menu className="p-1 text-muted hover:text-ink hover:bg-bg rounded cursor-pointer" title="Changer de type">
             <ArrowRightLeft className="w-3.5 h-3.5" />
           </button>
 
-          <button onClick={stop(() => onDuplicate(block))} className={iconBtn} title="Dupliquer">
+          <button onClick={stop(() => onDuplicate(block))} className="p-1 text-muted hover:text-ink hover:bg-bg rounded cursor-pointer" title="Dupliquer">
             <Copy className="w-3.5 h-3.5" />
           </button>
 
           <button
             onClick={stop(() => onMoveToPage(block))}
-            className={iconBtn}
+            className="p-1 text-muted hover:text-ink hover:bg-bg rounded cursor-pointer"
             title="Déplacer vers un autre cours"
           >
             <ArrowUpRight className="w-3.5 h-3.5" />
@@ -220,7 +223,7 @@ export const BlockActionBar: React.FC<BlockActionBarProps> = ({
 
           <button
             onClick={stop(() => onDelete(block))}
-            className="p-1 text-muted hover:text-terracotta hover:bg-bg rounded"
+            className="p-1 text-muted hover:text-terracotta hover:bg-bg rounded cursor-pointer"
             title="Supprimer"
           >
             <Trash2 className="w-3.5 h-3.5" />
