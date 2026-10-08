@@ -83,7 +83,17 @@ export const BlockActionBar: React.FC<BlockActionBarProps> = ({
       const above = anchor.top - height - 4;
       y = above >= margin ? above : Math.max(margin, vh - height - margin);
     }
-    const x = Math.min(Math.max(margin, anchor.left), Math.max(margin, vw - width - margin));
+    // For mobile, prefer placing menu to the left of the anchor if there's room
+    // For desktop, prefer placing menu to the right
+    const isMobile = vw < 768;
+    let x = anchor.left;
+    if (isMobile && anchor.left + width > vw - margin) {
+      // On mobile, if menu would overflow right, place it to the left
+      x = Math.max(margin, anchor.left - width);
+    } else {
+      // On desktop or if there's room, place it to the right
+      x = Math.min(Math.max(margin, anchor.left), Math.max(margin, vw - width - margin));
+    }
     return { x, y };
   };
 
