@@ -160,78 +160,73 @@ export const BlockActionBar: React.FC<BlockActionBarProps> = ({
 
   return (
     <>
-      <div className="w-full block-action-bar">
-        <div className="flex w-full min-w-0 flex-wrap md:flex-nowrap items-center gap-0.5 md:gap-1 px-1 md:px-3 py-0.5 md:py-1 bg-bg/50 backdrop-blur-sm rounded-t-lg transition-all duration-200">
+      <div className="w-full flex items-center justify-between px-3 py-1.5 bg-bg/50 backdrop-blur-sm rounded-t-lg transition-all duration-200 block-action-bar">
+        <div className="flex items-center gap-2">
           {canDrag && (
             <div
               draggable
               onDragStart={onDragStart}
               onDragEnd={onDragEnd}
-              className="p-0.5 md:p-1 text-muted cursor-grab active:cursor-grabbing flex-shrink-0"
+              className="p-1 text-muted cursor-grab active:cursor-grabbing"
             >
-              <GripVertical className="w-3 h-3 md:w-3.5 md:h-3.5" />
+              <GripVertical className="w-3.5 h-3.5" />
             </div>
           )}
 
-          {isRichType(block.type) && (
-            <div className="hidden md:block flex-shrink-0">
-              <FormatToolbar />
-            </div>
-          )}
+          {isRichType(block.type) && <FormatToolbar />}
 
-          {/* Action icons — wrap on mobile so none are off-screen or unreachable */}
           <button
-            onClick={stop(() => onToggleComment(block.id))}
-            className={`p-0.5 md:p-1 rounded text-xs flex items-center gap-1 flex-shrink-0 ${
-              commentsCount > 0
-                ? 'text-terracotta bg-terracotta-soft font-semibold'
-                : 'text-muted hover:text-ink hover:bg-bg'
-            }`}
-            title="Commentaires"
-          >
-            <MessageSquare className="w-3 h-3 md:w-3.5 md:h-3.5" />
+                      onClick={stop(() => onToggleComment(block.id))}
+                      className={`p-1 rounded text-xs flex items-center gap-1 ${
+                        commentsCount > 0
+                          ? 'text-terracotta bg-terracotta-soft font-semibold'
+                          : 'text-muted hover:text-ink hover:bg-bg'
+                      }`}
+                      title="Commentaires"
+                    >
+            <MessageSquare className="w-3.5 h-3.5" />
             {commentsCount > 0 && <span>{commentsCount}</span>}
           </button>
 
           <button
             onClick={handleInfoClick}
             data-block-menu
-            className="p-0.5 md:p-1 text-muted hover:text-ink rounded cursor-pointer flex-shrink-0"
+            className="p-1 text-muted hover:text-ink rounded cursor-pointer"
             title="Informations"
           >
-            <Info className="w-3 h-3 md:w-3 h-3" />
+            <Info className="w-3 h-3" />
           </button>
 
           <button
             onClick={stop(() => onOpenEmojiPicker(block.id))}
-            className="p-0.5 md:p-1 text-muted hover:text-ink hover:bg-bg rounded cursor-pointer flex-shrink-0"
+            className="p-1 text-muted hover:text-ink hover:bg-bg rounded cursor-pointer"
             title="Insérer un émoji"
           >
-            <Smile className="w-3 h-3 md:w-3.5 md:h-3.5" />
+            <Smile className="w-3.5 h-3.5" />
           </button>
 
-          <button onClick={handleTypeMenuClick} data-block-menu className="p-0.5 md:p-1 text-muted hover:text-ink hover:bg-bg rounded cursor-pointer flex-shrink-0" title="Changer de type">
-            <ArrowRightLeft className="w-3 h-3 md:w-3.5 md:h-3.5" />
+          <button onClick={handleTypeMenuClick} data-block-menu className="p-1 text-muted hover:text-ink hover:bg-bg rounded cursor-pointer" title="Changer de type">
+            <ArrowRightLeft className="w-3.5 h-3.5" />
           </button>
 
-          <button onClick={stop(() => onDuplicate(block))} className="p-0.5 md:p-1 text-muted hover:text-ink hover:bg-bg rounded cursor-pointer flex-shrink-0" title="Dupliquer">
-            <Copy className="w-3 h-3 md:w-3.5 md:h-3.5" />
+          <button onClick={stop(() => onDuplicate(block))} className="p-1 text-muted hover:text-ink hover:bg-bg rounded cursor-pointer" title="Dupliquer">
+            <Copy className="w-3.5 h-3.5" />
           </button>
 
           <button
             onClick={stop(() => onMoveToPage(block))}
-            className="p-0.5 md:p-1 text-muted hover:text-ink hover:bg-bg rounded cursor-pointer flex-shrink-0"
+            className="p-1 text-muted hover:text-ink hover:bg-bg rounded cursor-pointer"
             title="Déplacer vers un autre cours"
           >
-            <ArrowUpRight className="w-3 h-3 md:w-3.5 md:h-3.5" />
+            <ArrowUpRight className="w-3.5 h-3.5" />
           </button>
 
           <button
             onClick={stop(() => onDelete(block))}
-            className="p-0.5 md:p-1 text-muted hover:text-terracotta hover:bg-bg rounded cursor-pointer flex-shrink-0"
+            className="p-1 text-muted hover:text-terracotta hover:bg-bg rounded cursor-pointer"
             title="Supprimer"
           >
-            <Trash2 className="w-3 h-3 md:w-3.5 md:h-3.5" />
+            <Trash2 className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>

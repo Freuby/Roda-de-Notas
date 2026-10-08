@@ -125,9 +125,10 @@ input, textarea {
   opacity: 0;
   transform: translateY(-4px);
   max-height: 0;
+  overflow: hidden;
   transition: opacity 0.18s ease, transform 0.22s cubic-bezier(0.4, 0, 0.2, 1),
     max-height 0.25s ease, padding 0.22s ease;
-  padding: 0 0.5rem;
+  padding: 0 0.75rem;
   pointer-events: none;
 }
 
@@ -135,10 +136,9 @@ input, textarea {
 .block-animated.is-hovered .block-action-bar {
   opacity: 1;
   transform: translateY(0);
-  max-height: 120px;
-  padding: 0.25rem 0.25rem;
+  max-height: 44px;
+  padding: 0.4rem 0.75rem;
   pointer-events: auto;
-  overflow: visible;
 }
 
 .block-content-padded {

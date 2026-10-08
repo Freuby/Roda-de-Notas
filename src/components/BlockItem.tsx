@@ -125,7 +125,7 @@ export const BlockItem: React.FC<BlockItemProps> = (props) => {
       <div
         onClick={() => onSelectBlock(block.id)}
         className={`flex-1 min-w-0 w-full py-px px-2 ${
-          !locked && shouldShowActions ? 'pt-10 md:pt-4 block-content-padded' : ''
+          !locked && shouldShowActions ? 'pt-4 block-content-padded' : ''
         } transition-all duration-200 cursor-pointer`}
       >
         <BlockBody
