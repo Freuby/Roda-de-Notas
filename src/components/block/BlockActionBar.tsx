@@ -161,13 +161,13 @@ export const BlockActionBar: React.FC<BlockActionBarProps> = ({
   return (
     <>
       <div className="w-full flex items-center justify-between px-3 py-1.5 bg-bg/50 backdrop-blur-sm rounded-t-lg transition-all duration-200 block-action-bar">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 overflow-x-auto md:overflow-visible whitespace-nowrap [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {canDrag && (
             <div
               draggable
               onDragStart={onDragStart}
               onDragEnd={onDragEnd}
-              className="p-1 text-muted cursor-grab active:cursor-grabbing"
+              className="p-1 text-muted cursor-grab active:cursor-grabbing flex-shrink-0"
             >
               <GripVertical className="w-3.5 h-3.5" />
             </div>
@@ -176,14 +176,14 @@ export const BlockActionBar: React.FC<BlockActionBarProps> = ({
           {isRichType(block.type) && <FormatToolbar />}
 
           <button
-                      onClick={stop(() => onToggleComment(block.id))}
-                      className={`p-1 rounded text-xs flex items-center gap-1 ${
-                        commentsCount > 0
-                          ? 'text-terracotta bg-terracotta-soft font-semibold'
-                          : 'text-muted hover:text-ink hover:bg-bg'
-                      }`}
-                      title="Commentaires"
-                    >
+            onClick={stop(() => onToggleComment(block.id))}
+            className={`p-1 rounded text-xs flex items-center gap-1 flex-shrink-0 ${
+              commentsCount > 0
+                ? 'text-terracotta bg-terracotta-soft font-semibold'
+                : 'text-muted hover:text-ink hover:bg-bg'
+            }`}
+            title="Commentaires"
+          >
             <MessageSquare className="w-3.5 h-3.5" />
             {commentsCount > 0 && <span>{commentsCount}</span>}
           </button>
@@ -191,7 +191,7 @@ export const BlockActionBar: React.FC<BlockActionBarProps> = ({
           <button
             onClick={handleInfoClick}
             data-block-menu
-            className="p-1 text-muted hover:text-ink rounded cursor-pointer"
+            className="p-1 text-muted hover:text-ink rounded cursor-pointer flex-shrink-0"
             title="Informations"
           >
             <Info className="w-3 h-3" />
@@ -199,23 +199,23 @@ export const BlockActionBar: React.FC<BlockActionBarProps> = ({
 
           <button
             onClick={stop(() => onOpenEmojiPicker(block.id))}
-            className="p-1 text-muted hover:text-ink hover:bg-bg rounded cursor-pointer"
+            className="p-1 text-muted hover:text-ink hover:bg-bg rounded cursor-pointer flex-shrink-0"
             title="Insérer un émoji"
           >
             <Smile className="w-3.5 h-3.5" />
           </button>
 
-          <button onClick={handleTypeMenuClick} data-block-menu className="p-1 text-muted hover:text-ink hover:bg-bg rounded cursor-pointer" title="Changer de type">
+          <button onClick={handleTypeMenuClick} data-block-menu className="p-1 text-muted hover:text-ink hover:bg-bg rounded cursor-pointer flex-shrink-0" title="Changer de type">
             <ArrowRightLeft className="w-3.5 h-3.5" />
           </button>
 
-          <button onClick={stop(() => onDuplicate(block))} className="p-1 text-muted hover:text-ink hover:bg-bg rounded cursor-pointer" title="Dupliquer">
+          <button onClick={stop(() => onDuplicate(block))} className="p-1 text-muted hover:text-ink hover:bg-bg rounded cursor-pointer flex-shrink-0" title="Dupliquer">
             <Copy className="w-3.5 h-3.5" />
           </button>
 
           <button
             onClick={stop(() => onMoveToPage(block))}
-            className="p-1 text-muted hover:text-ink hover:bg-bg rounded cursor-pointer"
+            className="p-1 text-muted hover:text-ink hover:bg-bg rounded cursor-pointer flex-shrink-0"
             title="Déplacer vers un autre cours"
           >
             <ArrowUpRight className="w-3.5 h-3.5" />
@@ -223,7 +223,7 @@ export const BlockActionBar: React.FC<BlockActionBarProps> = ({
 
           <button
             onClick={stop(() => onDelete(block))}
-            className="p-1 text-muted hover:text-terracotta hover:bg-bg rounded cursor-pointer"
+            className="p-1 text-muted hover:text-terracotta hover:bg-bg rounded cursor-pointer flex-shrink-0"
             title="Supprimer"
           >
             <Trash2 className="w-3.5 h-3.5" />
